@@ -245,7 +245,7 @@ const RedirectPage = () => {
                 <Label htmlFor="name" className="text-sm font-medium">Nome *</Label>
                 <Input
                   id="name"
-                  placeholder="Seu nome completo"
+                  placeholder="Digite seu nome"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
