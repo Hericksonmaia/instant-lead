@@ -199,17 +199,24 @@ const RedirectPage = () => {
 
   if (!link || link.mode === "direct") {
     return (
-      <div className="min-h-screen flex items-center justify-center gradient-hero">
-        <Card className="w-full max-w-md shadow-lg">
-          <CardContent className="pt-6">
-            <div className="text-center space-y-4">
-              <div className="w-16 h-16 mx-auto rounded-full bg-whatsapp flex items-center justify-center">
-                <MessageCircle className="w-8 h-8 text-white" />
+      <div className="min-h-screen flex items-center justify-center gradient-hero p-4">
+        <Card className="w-full max-w-md shadow-glow border-0 overflow-hidden animate-scale-in">
+          <CardContent className="pt-12 pb-12">
+            <div className="text-center space-y-6">
+              <div className="w-24 h-24 mx-auto rounded-full bg-whatsapp flex items-center justify-center shadow-glow animate-pulse">
+                <MessageCircle className="w-12 h-12 text-white" />
               </div>
-              <h2 className="text-2xl font-bold">Redirecionando...</h2>
-              <p className="text-muted-foreground">
-                Você será redirecionado para o WhatsApp em instantes
-              </p>
+              <div className="space-y-2">
+                <h2 className="text-3xl font-bold">Redirecionando...</h2>
+                <p className="text-muted-foreground text-lg">
+                  Você será redirecionado para o WhatsApp em instantes
+                </p>
+              </div>
+              <div className="flex justify-center gap-2 pt-4">
+                <div className="w-2 h-2 rounded-full bg-primary animate-bounce"></div>
+                <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -219,58 +226,62 @@ const RedirectPage = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center gradient-hero p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-whatsapp flex items-center justify-center shadow-glow">
-            <MessageCircle className="w-8 h-8 text-white" />
+      <Card className="w-full max-w-md shadow-glow border-0 overflow-hidden animate-fade-in">
+        <CardHeader className="text-center pb-6 pt-8 px-6 bg-gradient-to-b from-accent/30 to-transparent">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-whatsapp flex items-center justify-center shadow-glow animate-pulse">
+            <MessageCircle className="w-10 h-10 text-white" />
           </div>
-          <CardTitle className="text-2xl">{link.name}</CardTitle>
-          <p className="text-sm text-muted-foreground mt-2">
-            Preencha os dados abaixo para ser atendido via WhatsApp
+          <CardTitle className="text-3xl font-bold mb-3 text-foreground">
+            {link.headline || link.name}
+          </CardTitle>
+          <p className="text-base text-muted-foreground leading-relaxed">
+            {link.subtitle || 'Preencha os dados abaixo para ser atendido via WhatsApp'}
           </p>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <CardContent className="px-6 pb-8">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {link.capture_name && (
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome *</Label>
+              <div className="space-y-2 animate-slide-up">
+                <Label htmlFor="name" className="text-sm font-medium">Nome *</Label>
                 <Input
                   id="name"
                   placeholder="Seu nome completo"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
+                  className="h-12 text-base border-2 focus:border-primary transition-all"
                 />
               </div>
             )}
 
             {link.capture_phone && (
-              <div className="space-y-2">
-                <Label htmlFor="phone">Telefone *</Label>
+              <div className="space-y-2 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+                <Label htmlFor="phone" className="text-sm font-medium">Telefone *</Label>
                 <Input
                   id="phone"
                   placeholder="(11) 99999-9999"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   required
+                  className="h-12 text-base border-2 focus:border-primary transition-all"
                 />
               </div>
             )}
 
             <Button
               type="submit"
-              className="w-full bg-whatsapp hover:bg-whatsapp-dark"
+              className="w-full h-14 text-lg font-semibold bg-whatsapp hover:bg-whatsapp-dark shadow-glow hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 mt-6"
               disabled={submitting}
             >
               {submitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   Redirecionando...
                 </>
               ) : (
                 <>
-                  <MessageCircle className="mr-2 h-4 w-4" />
-                  Continuar para WhatsApp
+                  <MessageCircle className="mr-2 h-5 w-5" />
+                  {link.button_text || 'Continuar para WhatsApp'}
                 </>
               )}
             </Button>

@@ -132,9 +132,11 @@ export type Database = {
       }
       redirect_links: {
         Row: {
+          button_text: string | null
           capture_name: boolean | null
           capture_phone: boolean | null
           created_at: string | null
+          headline: string | null
           id: string
           message_template: string | null
           mode: string
@@ -142,12 +144,15 @@ export type Database = {
           pixel_event: string | null
           pixel_id: string | null
           slug: string
+          subtitle: string | null
           workspace_id: string
         }
         Insert: {
+          button_text?: string | null
           capture_name?: boolean | null
           capture_phone?: boolean | null
           created_at?: string | null
+          headline?: string | null
           id?: string
           message_template?: string | null
           mode: string
@@ -155,12 +160,15 @@ export type Database = {
           pixel_event?: string | null
           pixel_id?: string | null
           slug: string
+          subtitle?: string | null
           workspace_id: string
         }
         Update: {
+          button_text?: string | null
           capture_name?: boolean | null
           capture_phone?: boolean | null
           created_at?: string | null
+          headline?: string | null
           id?: string
           message_template?: string | null
           mode?: string
@@ -168,6 +176,7 @@ export type Database = {
           pixel_event?: string | null
           pixel_id?: string | null
           slug?: string
+          subtitle?: string | null
           workspace_id?: string
         }
         Relationships: [

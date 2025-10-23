@@ -25,12 +25,24 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
   const [loading, setLoading] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [newPhone, setNewPhone] = useState("");
+  const [settings, setSettings] = useState({
+    headline: link.headline || "",
+    subtitle: link.subtitle || "",
+    buttonText: link.button_text || "",
+    messageTemplate: link.message_template || "",
+  });
 
   useEffect(() => {
     if (open) {
       fetchContacts();
+      setSettings({
+        headline: link.headline || "",
+        subtitle: link.subtitle || "",
+        buttonText: link.button_text || "",
+        messageTemplate: link.message_template || "",
+      });
     }
-  }, [open]);
+  }, [open, link]);
 
   const fetchContacts = async () => {
     const { data } = await supabase
@@ -91,6 +103,30 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
       toast.success("Fila resetada!");
     } catch (error: any) {
       toast.error("Erro ao resetar fila");
+    }
+  };
+
+  const saveSettings = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from("redirect_links")
+        .update({
+          headline: settings.headline || null,
+          subtitle: settings.subtitle || null,
+          button_text: settings.buttonText || null,
+          message_template: settings.messageTemplate,
+        })
+        .eq("id", link.id);
+
+      if (error) throw error;
+
+      toast.success("Configurações salvas!");
+      onSuccess();
+    } catch (error: any) {
+      toast.error("Erro ao salvar configurações");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -159,11 +195,64 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
             </div>
           </TabsContent>
 
-          <TabsContent value="settings">
+          <TabsContent value="settings" className="space-y-6 py-4">
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Configurações adicionais em breve...
-              </p>
+              <div className="space-y-2">
+                <Label htmlFor="edit-headline">Título Principal</Label>
+                <Input
+                  id="edit-headline"
+                  placeholder="Entre em contato"
+                  value={settings.headline}
+                  onChange={(e) => setSettings({ ...settings, headline: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Deixe vazio para usar o nome do link
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-subtitle">Subtítulo</Label>
+                <Input
+                  id="edit-subtitle"
+                  placeholder="Preencha os dados abaixo..."
+                  value={settings.subtitle}
+                  onChange={(e) => setSettings({ ...settings, subtitle: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-buttonText">Texto do Botão</Label>
+                <Input
+                  id="edit-buttonText"
+                  placeholder="Continuar para WhatsApp"
+                  value={settings.buttonText}
+                  onChange={(e) => setSettings({ ...settings, buttonText: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-messageTemplate">Mensagem do WhatsApp</Label>
+                <Input
+                  id="edit-messageTemplate"
+                  placeholder="Use {nome} para personalizar"
+                  value={settings.messageTemplate}
+                  onChange={(e) => setSettings({ ...settings, messageTemplate: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Use {"{nome}"} para incluir o nome do lead
+                </p>
+              </div>
+
+              <Button onClick={saveSettings} disabled={loading} className="w-full">
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  "Salvar Configurações"
+                )}
+              </Button>
             </div>
           </TabsContent>
         </Tabs>

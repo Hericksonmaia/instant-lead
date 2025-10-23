@@ -24,6 +24,9 @@ export const CreateLinkDialog = ({ open, onOpenChange }: CreateLinkDialogProps) 
     capturePhone: false,
     pixelId: "",
     messageTemplate: "Olá! Gostaria de mais informações.",
+    headline: "",
+    subtitle: "",
+    buttonText: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -58,6 +61,9 @@ export const CreateLinkDialog = ({ open, onOpenChange }: CreateLinkDialogProps) 
         capture_phone: formData.capturePhone,
         pixel_id: formData.pixelId || null,
         message_template: formData.messageTemplate,
+        headline: formData.headline || null,
+        subtitle: formData.subtitle || null,
+        button_text: formData.buttonText || null,
       });
 
       if (error) throw error;
@@ -179,6 +185,43 @@ export const CreateLinkDialog = ({ open, onOpenChange }: CreateLinkDialogProps) 
             <p className="text-xs text-muted-foreground">
               Use {"{nome}"} para incluir o nome do lead na mensagem
             </p>
+          </div>
+
+          <div className="border-t pt-6 space-y-4">
+            <h3 className="font-semibold text-sm text-muted-foreground">🎨 Personalização da Página</h3>
+            
+            <div className="space-y-2">
+              <Label htmlFor="headline">Título Principal</Label>
+              <Input
+                id="headline"
+                placeholder="Entre em contato"
+                value={formData.headline}
+                onChange={(e) => setFormData({ ...formData, headline: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Deixe vazio para usar o nome do link
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="subtitle">Subtítulo</Label>
+              <Input
+                id="subtitle"
+                placeholder="Preencha os dados abaixo para ser atendido"
+                value={formData.subtitle}
+                onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="buttonText">Texto do Botão</Label>
+              <Input
+                id="buttonText"
+                placeholder="Continuar para WhatsApp"
+                value={formData.buttonText}
+                onChange={(e) => setFormData({ ...formData, buttonText: e.target.value })}
+              />
+            </div>
           </div>
 
           <div className="flex justify-end gap-3">
