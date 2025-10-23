@@ -62,12 +62,12 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center gradient-hero p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl gradient-primary bg-clip-text text-transparent">
+      <Card className="w-full max-w-md shadow-glow overflow-hidden">
+        <CardHeader className="text-center gradient-primary py-8 px-6">
+          <CardTitle className="text-4xl font-bold text-white mb-2">
             LeadFlow
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-white/95 text-base">
             Plataforma de distribuição inteligente de leads
           </CardDescription>
         </CardHeader>
