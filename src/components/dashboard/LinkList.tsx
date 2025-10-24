@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Edit, Trash2, Copy, Users } from "lucide-react";
+import { ExternalLink, Edit, Trash2, Copy, Users, BarChart3 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { EditLinkDialog } from "./EditLinkDialog";
 import { LeadsDialog } from "./LeadsDialog";
@@ -16,6 +17,7 @@ interface RedirectLink {
 }
 
 export const LinkList = () => {
+  const navigate = useNavigate();
   const [links, setLinks] = useState<RedirectLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingLink, setEditingLink] = useState<RedirectLink | null>(null);
@@ -118,7 +120,16 @@ export const LinkList = () => {
               <Button
                 variant="ghost"
                 size="icon"
+                onClick={() => navigate(`/analytics/${link.id}`)}
+                title="Ver análises"
+              >
+                <BarChart3 className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setViewingLeads(link)}
+                title="Ver leads"
               >
                 <Users className="w-4 h-4" />
               </Button>
@@ -126,6 +137,7 @@ export const LinkList = () => {
                 variant="ghost"
                 size="icon"
                 onClick={() => copyLink(link.slug)}
+                title="Copiar link"
               >
                 <Copy className="w-4 h-4" />
               </Button>
@@ -133,6 +145,7 @@ export const LinkList = () => {
                 variant="ghost"
                 size="icon"
                 onClick={() => window.open(`/r/${link.slug}`, "_blank")}
+                title="Abrir link"
               >
                 <ExternalLink className="w-4 h-4" />
               </Button>
@@ -140,6 +153,7 @@ export const LinkList = () => {
                 variant="ghost"
                 size="icon"
                 onClick={() => setEditingLink(link)}
+                title="Editar link"
               >
                 <Edit className="w-4 h-4" />
               </Button>
@@ -147,6 +161,7 @@ export const LinkList = () => {
                 variant="ghost"
                 size="icon"
                 onClick={() => deleteLink(link.id)}
+                title="Excluir link"
               >
                 <Trash2 className="w-4 h-4 text-destructive" />
               </Button>
