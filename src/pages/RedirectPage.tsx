@@ -7,12 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
-
-declare global {
-  interface Window {
-    fbq?: (...args: any[]) => void;
-  }
-}
+import { useMetaPixel } from "@/hooks/useMetaPixel";
 
 const RedirectPage = () => {
   const { slug } = useParams();
@@ -23,6 +18,15 @@ const RedirectPage = () => {
     name: "",
     phone: "",
   });
+
+  const { trackEvent } = useMetaPixel(
+    link?.pixel_id
+      ? {
+          pixelId: link.pixel_id,
+          accessToken: link.facebook_access_token,
+        }
+      : null
+  );
 
   useEffect(() => {
     loadLink();
@@ -41,12 +45,6 @@ const RedirectPage = () => {
 
       setLink(data);
 
-      // Load Facebook Pixel
-      if (data.pixel_id) {
-        loadFacebookPixel(data.pixel_id);
-        window.fbq?.("track", "PageView");
-      }
-
       // Direct redirect
       if (data.mode === "direct") {
         handleDirectRedirect(data);
@@ -58,24 +56,15 @@ const RedirectPage = () => {
     }
   };
 
-  const loadFacebookPixel = (pixelId: string) => {
-    if (window.fbq) return;
-
-    const script = document.createElement("script");
-    script.innerHTML = `
-      !function(f,b,e,v,n,t,s)
-      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-      n.queue=[];t=b.createElement(e);t.async=!0;
-      t.src=v;s=b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t,s)}(window, document,'script',
-      'https://connect.facebook.net/en_US/fbevents.js');
-      fbq('init', '${pixelId}');
-    `;
-    document.head.appendChild(script);
-  };
-
+  // Track PageView when link loads
+  useEffect(() => {
+    if (link?.pixel_id) {
+      trackEvent({
+        eventName: "PageView",
+        eventSourceUrl: window.location.href,
+      });
+    }
+  }, [link?.pixel_id]);
   const handleDirectRedirect = async (linkData: any) => {
     try {
       const { data: contactId } = await supabase.rpc("get_next_contact", {
@@ -115,9 +104,14 @@ const RedirectPage = () => {
       });
 
       // Track conversion
-      if (linkData.pixel_id) {
-        window.fbq?.("track", linkData.pixel_event || "Contact");
-      }
+      await trackEvent({
+        eventName: linkData.pixel_event || "Contact",
+        eventSourceUrl: window.location.href,
+        customData: {
+          content_name: linkData.name,
+          content_category: "redirect_link",
+        },
+      });
 
       // Redirect
       const message = encodeURIComponent(linkData.message_template);
@@ -170,10 +164,21 @@ const RedirectPage = () => {
         user_agent: navigator.userAgent,
       });
 
-      // Track conversion
-      if (link.pixel_id) {
-        window.fbq?.("track", link.pixel_event || "Contact");
-      }
+      // Track conversion with user data
+      await trackEvent({
+        eventName: link.pixel_event || "Contact",
+        eventSourceUrl: window.location.href,
+        userData: {
+          email: formData.phone ? `${formData.phone.replace(/\D/g, "")}@leadflow.temp` : undefined,
+          phone: formData.phone,
+          firstName: formData.name?.split(" ")[0],
+          lastName: formData.name?.split(" ").slice(1).join(" "),
+        },
+        customData: {
+          content_name: link.name,
+          content_category: "form_submission",
+        },
+      });
 
       // Redirect
       let message = link.message_template;
