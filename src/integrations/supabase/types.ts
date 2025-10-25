@@ -166,6 +166,7 @@ export type Database = {
           capture_name: boolean | null
           capture_phone: boolean | null
           created_at: string | null
+          facebook_access_token: string | null
           headline: string | null
           id: string
           message_template: string | null
@@ -182,6 +183,7 @@ export type Database = {
           capture_name?: boolean | null
           capture_phone?: boolean | null
           created_at?: string | null
+          facebook_access_token?: string | null
           headline?: string | null
           id?: string
           message_template?: string | null
@@ -198,6 +200,7 @@ export type Database = {
           capture_name?: boolean | null
           capture_phone?: boolean | null
           created_at?: string | null
+          facebook_access_token?: string | null
           headline?: string | null
           id?: string
           message_template?: string | null

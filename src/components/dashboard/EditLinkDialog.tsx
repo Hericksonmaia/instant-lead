@@ -4,6 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2 } from "lucide-react";
@@ -26,6 +28,13 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [newPhone, setNewPhone] = useState("");
   const [settings, setSettings] = useState({
+    name: link.name || "",
+    mode: link.mode || "form",
+    captureName: link.capture_name || false,
+    capturePhone: link.capture_phone || false,
+    pixelId: link.pixel_id || "",
+    pixelEvent: link.pixel_event || "Contact",
+    facebookToken: link.facebook_access_token || "",
     headline: link.headline || "",
     subtitle: link.subtitle || "",
     buttonText: link.button_text || "",
@@ -36,6 +45,13 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
     if (open) {
       fetchContacts();
       setSettings({
+        name: link.name || "",
+        mode: link.mode || "form",
+        captureName: link.capture_name || false,
+        capturePhone: link.capture_phone || false,
+        pixelId: link.pixel_id || "",
+        pixelEvent: link.pixel_event || "Contact",
+        facebookToken: link.facebook_access_token || "",
         headline: link.headline || "",
         subtitle: link.subtitle || "",
         buttonText: link.button_text || "",
@@ -112,6 +128,13 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
       const { error } = await supabase
         .from("redirect_links")
         .update({
+          name: settings.name,
+          mode: settings.mode,
+          capture_name: settings.captureName,
+          capture_phone: settings.capturePhone,
+          pixel_id: settings.pixelId || null,
+          pixel_event: settings.pixelEvent || "Contact",
+          facebook_access_token: settings.facebookToken || null,
           headline: settings.headline || null,
           subtitle: settings.subtitle || null,
           button_text: settings.buttonText || null,
@@ -138,9 +161,10 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
         </DialogHeader>
 
         <Tabs defaultValue="contacts">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="contacts">Atendentes</TabsTrigger>
             <TabsTrigger value="settings">Configurações</TabsTrigger>
+            <TabsTrigger value="advanced">Avançado</TabsTrigger>
           </TabsList>
 
           <TabsContent value="contacts" className="space-y-4">
@@ -251,6 +275,139 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
                   </>
                 ) : (
                   "Salvar Configurações"
+                )}
+              </Button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="advanced" className="space-y-6 py-4">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Nome do Link</Label>
+                <Input
+                  id="edit-name"
+                  placeholder="Ex: Campanha Facebook"
+                  value={settings.name}
+                  onChange={(e) => setSettings({ ...settings, name: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-slug">Slug (URL)</Label>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">/r/</span>
+                  <Input
+                    id="edit-slug"
+                    value={link.slug}
+                    disabled
+                    className="opacity-50"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  O slug não pode ser alterado após a criação
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <Label>Modo de Redirecionamento</Label>
+                <RadioGroup
+                  value={settings.mode}
+                  onValueChange={(value) => setSettings({ ...settings, mode: value })}
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="form" id="edit-form" />
+                    <Label htmlFor="edit-form" className="font-normal cursor-pointer">
+                      Formulário (captura dados antes de redirecionar)
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="direct" id="edit-direct" />
+                    <Label htmlFor="edit-direct" className="font-normal cursor-pointer">
+                      Direto (redireciona imediatamente)
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {settings.mode === "form" && (
+                <div className="space-y-3">
+                  <Label>Campos do Formulário</Label>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit-captureName"
+                      checked={settings.captureName}
+                      onCheckedChange={(checked) =>
+                        setSettings({ ...settings, captureName: checked as boolean })
+                      }
+                    />
+                    <Label htmlFor="edit-captureName" className="font-normal cursor-pointer">
+                      Capturar Nome
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit-capturePhone"
+                      checked={settings.capturePhone}
+                      onCheckedChange={(checked) =>
+                        setSettings({ ...settings, capturePhone: checked as boolean })
+                      }
+                    />
+                    <Label htmlFor="edit-capturePhone" className="font-normal cursor-pointer">
+                      Capturar Telefone
+                    </Label>
+                  </div>
+                </div>
+              )}
+
+              <div className="border-t pt-4 space-y-4">
+                <h3 className="font-semibold text-sm">Facebook Pixel & API</h3>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-pixelId">Facebook Pixel ID</Label>
+                  <Input
+                    id="edit-pixelId"
+                    placeholder="1234567890"
+                    value={settings.pixelId}
+                    onChange={(e) => setSettings({ ...settings, pixelId: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-pixelEvent">Evento do Pixel</Label>
+                  <Input
+                    id="edit-pixelEvent"
+                    placeholder="Contact"
+                    value={settings.pixelEvent}
+                    onChange={(e) => setSettings({ ...settings, pixelEvent: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Ex: Contact, Lead, PageView
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-facebookToken">Token de API do Facebook</Label>
+                  <Input
+                    id="edit-facebookToken"
+                    type="password"
+                    placeholder="Token de acesso da Conversions API"
+                    value={settings.facebookToken}
+                    onChange={(e) => setSettings({ ...settings, facebookToken: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Token de acesso para Facebook Conversions API
+                  </p>
+                </div>
+              </div>
+
+              <Button onClick={saveSettings} disabled={loading} className="w-full">
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  "Salvar Todas as Configurações"
                 )}
               </Button>
             </div>

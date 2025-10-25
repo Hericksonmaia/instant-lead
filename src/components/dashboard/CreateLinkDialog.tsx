@@ -23,6 +23,8 @@ export const CreateLinkDialog = ({ open, onOpenChange }: CreateLinkDialogProps) 
     captureName: false,
     capturePhone: false,
     pixelId: "",
+    pixelEvent: "Contact",
+    facebookToken: "",
     messageTemplate: "Olá! Gostaria de mais informações.",
     headline: "",
     subtitle: "",
@@ -60,6 +62,8 @@ export const CreateLinkDialog = ({ open, onOpenChange }: CreateLinkDialogProps) 
         capture_name: formData.captureName,
         capture_phone: formData.capturePhone,
         pixel_id: formData.pixelId || null,
+        pixel_event: formData.pixelEvent || "Contact",
+        facebook_access_token: formData.facebookToken || null,
         message_template: formData.messageTemplate,
         headline: formData.headline || null,
         subtitle: formData.subtitle || null,
@@ -172,6 +176,33 @@ export const CreateLinkDialog = ({ open, onOpenChange }: CreateLinkDialogProps) 
               value={formData.pixelId}
               onChange={(e) => setFormData({ ...formData, pixelId: e.target.value })}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="pixelEvent">Evento do Pixel</Label>
+            <Input
+              id="pixelEvent"
+              placeholder="Contact"
+              value={formData.pixelEvent}
+              onChange={(e) => setFormData({ ...formData, pixelEvent: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Ex: Contact, Lead, PageView
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="facebookToken">Token de API do Facebook (opcional)</Label>
+            <Input
+              id="facebookToken"
+              type="password"
+              placeholder="Token de acesso da Conversions API"
+              value={formData.facebookToken}
+              onChange={(e) => setFormData({ ...formData, facebookToken: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Token de acesso para Facebook Conversions API
+            </p>
           </div>
 
           <div className="space-y-2">
