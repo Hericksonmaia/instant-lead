@@ -166,14 +166,11 @@ export type Database = {
           capture_name: boolean | null
           capture_phone: boolean | null
           created_at: string | null
-          facebook_access_token: string | null
           headline: string | null
           id: string
           message_template: string | null
           mode: string
           name: string
-          pixel_event: string | null
-          pixel_id: string | null
           slug: string
           subtitle: string | null
           workspace_id: string
@@ -183,14 +180,11 @@ export type Database = {
           capture_name?: boolean | null
           capture_phone?: boolean | null
           created_at?: string | null
-          facebook_access_token?: string | null
           headline?: string | null
           id?: string
           message_template?: string | null
           mode: string
           name: string
-          pixel_event?: string | null
-          pixel_id?: string | null
           slug: string
           subtitle?: string | null
           workspace_id: string
@@ -200,14 +194,11 @@ export type Database = {
           capture_name?: boolean | null
           capture_phone?: boolean | null
           created_at?: string | null
-          facebook_access_token?: string | null
           headline?: string | null
           id?: string
           message_template?: string | null
           mode?: string
           name?: string
-          pixel_event?: string | null
-          pixel_id?: string | null
           slug?: string
           subtitle?: string | null
           workspace_id?: string
@@ -272,6 +263,8 @@ export type Database = {
       workspaces: {
         Row: {
           created_at: string | null
+          facebook_access_token: string | null
+          facebook_pixel_id: string | null
           id: string
           name: string
           owner_id: string
@@ -279,6 +272,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          facebook_access_token?: string | null
+          facebook_pixel_id?: string | null
           id?: string
           name: string
           owner_id: string
@@ -286,6 +281,8 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          facebook_access_token?: string | null
+          facebook_pixel_id?: string | null
           id?: string
           name?: string
           owner_id?: string

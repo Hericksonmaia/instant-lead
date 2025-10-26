@@ -9,7 +9,7 @@ declare global {
 
 interface MetaPixelConfig {
   pixelId: string;
-  accessToken?: string;
+  linkId: string;
 }
 
 interface EventData {
@@ -86,51 +86,48 @@ export const useMetaPixel = (config: MetaPixelConfig | null) => {
 
     window.fbq?.("track", eventData.eventName, pixelData);
 
-    // Track via Conversions API if access token is available
-    if (configRef.current.accessToken) {
-      try {
-        const userData = eventData.userData || {};
-        
-        // Hash sensitive data
-        const hashedUserData: any = {};
-        if (userData.email) {
-          hashedUserData.em = await sha256(userData.email.toLowerCase().trim());
-        }
-        if (userData.phone) {
-          hashedUserData.ph = await sha256(userData.phone.replace(/\D/g, ""));
-        }
-        if (userData.firstName) {
-          hashedUserData.fn = await sha256(userData.firstName.toLowerCase().trim());
-        }
-        if (userData.lastName) {
-          hashedUserData.ln = await sha256(userData.lastName.toLowerCase().trim());
-        }
-        if (userData.externalId) {
-          hashedUserData.external_id = await sha256(userData.externalId);
-        }
-
-        // Send to Conversions API via edge function
-        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-conversions-api`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({
-            pixelId: configRef.current.pixelId,
-            accessToken: configRef.current.accessToken,
-            eventName: eventData.eventName,
-            eventId,
-            eventSourceUrl,
-            userData: hashedUserData,
-            customData: eventData.customData || {},
-            userAgent: navigator.userAgent,
-            timestamp: Math.floor(Date.now() / 1000),
-          }),
-        });
-      } catch (error) {
-        console.error("Error sending to Conversions API:", error);
+    // Track via Conversions API (token retrieved server-side)
+    try {
+      const userData = eventData.userData || {};
+      
+      // Hash sensitive data
+      const hashedUserData: any = {};
+      if (userData.email) {
+        hashedUserData.em = await sha256(userData.email.toLowerCase().trim());
       }
+      if (userData.phone) {
+        hashedUserData.ph = await sha256(userData.phone.replace(/\D/g, ""));
+      }
+      if (userData.firstName) {
+        hashedUserData.fn = await sha256(userData.firstName.toLowerCase().trim());
+      }
+      if (userData.lastName) {
+        hashedUserData.ln = await sha256(userData.lastName.toLowerCase().trim());
+      }
+      if (userData.externalId) {
+        hashedUserData.external_id = await sha256(userData.externalId);
+      }
+
+      // Send to Conversions API via edge function (linkId passed, token retrieved server-side)
+      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-conversions-api`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          linkId: configRef.current.linkId,
+          eventName: eventData.eventName,
+          eventId,
+          eventSourceUrl,
+          userData: hashedUserData,
+          customData: eventData.customData || {},
+          userAgent: navigator.userAgent,
+          timestamp: Math.floor(Date.now() / 1000),
+        }),
+      });
+    } catch (error) {
+      console.error("Error sending to Conversions API:", error);
     }
   };
 

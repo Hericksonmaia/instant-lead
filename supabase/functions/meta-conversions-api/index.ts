@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,8 +8,7 @@ const corsHeaders = {
 };
 
 interface ConversionEvent {
-  pixelId: string;
-  accessToken: string;
+  linkId: string;
   eventName: string;
   eventId: string;
   eventSourceUrl: string;
@@ -34,10 +34,41 @@ serve(async (req) => {
     const payload: ConversionEvent = await req.json();
     
     console.log("Received conversion event:", {
-      pixelId: payload.pixelId,
+      linkId: payload.linkId,
       eventName: payload.eventName,
       eventId: payload.eventId,
     });
+
+    // Validate required fields
+    if (!payload.linkId || !payload.eventName || !payload.eventId) {
+      throw new Error("Missing required fields: linkId, eventName, or eventId");
+    }
+
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Fetch link and workspace to get token
+    const { data: link, error: linkError } = await supabase
+      .from('redirect_links')
+      .select('workspace_id, workspaces(facebook_access_token, facebook_pixel_id)')
+      .eq('id', payload.linkId)
+      .single();
+
+    if (linkError || !link) {
+      console.error("Error fetching link:", linkError);
+      throw new Error("Link not found");
+    }
+
+    const workspace = (link.workspaces as any);
+    const accessToken = workspace?.facebook_access_token;
+    const pixelId = workspace?.facebook_pixel_id;
+
+    if (!accessToken || !pixelId) {
+      console.error("Missing Facebook credentials for workspace");
+      throw new Error("Facebook Pixel not configured for this workspace");
+    }
 
     // Get client IP from request headers
     const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || 
@@ -61,9 +92,11 @@ serve(async (req) => {
       custom_data: payload.customData,
     };
 
+    console.log("Sending to Facebook CAPI:", { pixelId, eventName: payload.eventName });
+
     // Send to Facebook Conversions API
     const response = await fetch(
-      `https://graph.facebook.com/v18.0/${payload.pixelId}/events`,
+      `https://graph.facebook.com/v18.0/${pixelId}/events`,
       {
         method: "POST",
         headers: {
@@ -71,7 +104,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           data: [event],
-          access_token: payload.accessToken,
+          access_token: accessToken,
         }),
       }
     );

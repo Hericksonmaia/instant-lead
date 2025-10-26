@@ -32,26 +32,26 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
     mode: link.mode || "form",
     captureName: link.capture_name || false,
     capturePhone: link.capture_phone || false,
-    pixelId: link.pixel_id || "",
-    pixelEvent: link.pixel_event || "Contact",
-    facebookToken: link.facebook_access_token || "",
     headline: link.headline || "",
     subtitle: link.subtitle || "",
     buttonText: link.button_text || "",
     messageTemplate: link.message_template || "",
   });
+  
+  const [workspaceSettings, setWorkspaceSettings] = useState({
+    pixelId: "",
+    facebookToken: "",
+  });
 
   useEffect(() => {
     if (open) {
       fetchContacts();
+      fetchWorkspaceSettings();
       setSettings({
         name: link.name || "",
         mode: link.mode || "form",
         captureName: link.capture_name || false,
         capturePhone: link.capture_phone || false,
-        pixelId: link.pixel_id || "",
-        pixelEvent: link.pixel_event || "Contact",
-        facebookToken: link.facebook_access_token || "",
         headline: link.headline || "",
         subtitle: link.subtitle || "",
         buttonText: link.button_text || "",
@@ -59,6 +59,21 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
       });
     }
   }, [open, link]);
+
+  const fetchWorkspaceSettings = async () => {
+    const { data } = await supabase
+      .from("workspaces")
+      .select("facebook_pixel_id, facebook_access_token")
+      .eq("id", link.workspace_id)
+      .single();
+
+    if (data) {
+      setWorkspaceSettings({
+        pixelId: data.facebook_pixel_id || "",
+        facebookToken: data.facebook_access_token || "",
+      });
+    }
+  };
 
   const fetchContacts = async () => {
     const { data } = await supabase
@@ -125,16 +140,14 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
   const saveSettings = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase
+      // Save link settings
+      const { error: linkError } = await supabase
         .from("redirect_links")
         .update({
           name: settings.name,
           mode: settings.mode,
           capture_name: settings.captureName,
           capture_phone: settings.capturePhone,
-          pixel_id: settings.pixelId || null,
-          pixel_event: settings.pixelEvent || "Contact",
-          facebook_access_token: settings.facebookToken || null,
           headline: settings.headline || null,
           subtitle: settings.subtitle || null,
           button_text: settings.buttonText || null,
@@ -142,7 +155,18 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
         })
         .eq("id", link.id);
 
-      if (error) throw error;
+      if (linkError) throw linkError;
+
+      // Save workspace Facebook settings
+      const { error: workspaceError } = await supabase
+        .from("workspaces")
+        .update({
+          facebook_pixel_id: workspaceSettings.pixelId || null,
+          facebook_access_token: workspaceSettings.facebookToken || null,
+        })
+        .eq("id", link.workspace_id);
+
+      if (workspaceError) throw workspaceError;
 
       toast.success("Configurações salvas!");
       onSuccess();
@@ -361,28 +385,18 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
 
               <div className="border-t pt-4 space-y-4">
                 <h3 className="font-semibold text-sm">Facebook Pixel & API</h3>
+                <p className="text-xs text-muted-foreground">
+                  Configurações aplicadas a todos os links deste workspace
+                </p>
                 
                 <div className="space-y-2">
                   <Label htmlFor="edit-pixelId">Facebook Pixel ID</Label>
                   <Input
                     id="edit-pixelId"
                     placeholder="1234567890"
-                    value={settings.pixelId}
-                    onChange={(e) => setSettings({ ...settings, pixelId: e.target.value })}
+                    value={workspaceSettings.pixelId}
+                    onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, pixelId: e.target.value })}
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="edit-pixelEvent">Evento do Pixel</Label>
-                  <Input
-                    id="edit-pixelEvent"
-                    placeholder="Contact"
-                    value={settings.pixelEvent}
-                    onChange={(e) => setSettings({ ...settings, pixelEvent: e.target.value })}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Ex: Contact, Lead, PageView
-                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -391,11 +405,11 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
                     id="edit-facebookToken"
                     type="password"
                     placeholder="Token de acesso da Conversions API"
-                    value={settings.facebookToken}
-                    onChange={(e) => setSettings({ ...settings, facebookToken: e.target.value })}
+                    value={workspaceSettings.facebookToken}
+                    onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, facebookToken: e.target.value })}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Token de acesso para Facebook Conversions API
+                    🔒 Token armazenado com segurança no servidor (nunca exposto ao navegador)
                   </p>
                 </div>
               </div>

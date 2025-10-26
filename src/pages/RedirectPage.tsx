@@ -20,12 +20,7 @@ const RedirectPage = () => {
   });
 
   const { trackEvent } = useMetaPixel(
-    link?.pixel_id
-      ? {
-          pixelId: link.pixel_id,
-          accessToken: link.facebook_access_token,
-        }
-      : null
+    link ? { pixelId: "placeholder", linkId: link.id } : null
   );
 
   useEffect(() => {
@@ -58,13 +53,13 @@ const RedirectPage = () => {
 
   // Track PageView when link loads
   useEffect(() => {
-    if (link?.pixel_id) {
+    if (link?.id) {
       trackEvent({
         eventName: "PageView",
         eventSourceUrl: window.location.href,
       });
     }
-  }, [link?.pixel_id]);
+  }, [link?.id]);
   const handleDirectRedirect = async (linkData: any) => {
     try {
       const { data: contactId } = await supabase.rpc("get_next_contact", {
@@ -105,7 +100,7 @@ const RedirectPage = () => {
 
       // Track conversion
       await trackEvent({
-        eventName: linkData.pixel_event || "Contact",
+        eventName: "Contact",
         eventSourceUrl: window.location.href,
         customData: {
           content_name: linkData.name,
@@ -166,7 +161,7 @@ const RedirectPage = () => {
 
       // Track conversion with user data
       await trackEvent({
-        eventName: link.pixel_event || "Contact",
+        eventName: "Contact",
         eventSourceUrl: window.location.href,
         userData: {
           email: formData.phone ? `${formData.phone.replace(/\D/g, "")}@leadflow.temp` : undefined,
