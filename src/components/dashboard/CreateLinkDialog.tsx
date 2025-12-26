@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ interface CreateLinkDialogProps {
 }
 
 export const CreateLinkDialog = ({ open, onOpenChange }: CreateLinkDialogProps) => {
+  const { currentWorkspace } = useWorkspace();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -22,9 +24,6 @@ export const CreateLinkDialog = ({ open, onOpenChange }: CreateLinkDialogProps) 
     mode: "form",
     captureName: false,
     capturePhone: false,
-    pixelId: "",
-    pixelEvent: "Contact",
-    facebookToken: "",
     messageTemplate: "Olá! Gostaria de mais informações.",
     headline: "",
     subtitle: "",
@@ -33,37 +32,20 @@ export const CreateLinkDialog = ({ open, onOpenChange }: CreateLinkDialogProps) 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentWorkspace) {
+      toast.error("Workspace não selecionado");
+      return;
+    }
     setLoading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado");
-
-      let workspace = await supabase
-        .from("workspaces")
-        .select("id")
-        .eq("owner_id", user.id)
-        .single();
-
-      if (!workspace.data) {
-        const { data: newWorkspace } = await supabase
-          .from("workspaces")
-          .insert({ name: "Meu Workspace", owner_id: user.id })
-          .select()
-          .single();
-        workspace.data = newWorkspace;
-      }
-
       const { error } = await supabase.from("redirect_links").insert({
-        workspace_id: workspace.data.id,
+        workspace_id: currentWorkspace.id,
         slug: formData.slug,
         name: formData.name,
         mode: formData.mode,
         capture_name: formData.captureName,
         capture_phone: formData.capturePhone,
-        pixel_id: formData.pixelId || null,
-        pixel_event: formData.pixelEvent || "Contact",
-        facebook_access_token: formData.facebookToken || null,
         message_template: formData.messageTemplate,
         headline: formData.headline || null,
         subtitle: formData.subtitle || null,
@@ -169,39 +151,15 @@ export const CreateLinkDialog = ({ open, onOpenChange }: CreateLinkDialogProps) 
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="pixelId">Facebook Pixel ID (opcional)</Label>
+            <Label htmlFor="messageTemplate">Mensagem do WhatsApp</Label>
             <Input
-              id="pixelId"
-              placeholder="1234567890"
-              value={formData.pixelId}
-              onChange={(e) => setFormData({ ...formData, pixelId: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="pixelEvent">Evento do Pixel</Label>
-            <Input
-              id="pixelEvent"
-              placeholder="Contact"
-              value={formData.pixelEvent}
-              onChange={(e) => setFormData({ ...formData, pixelEvent: e.target.value })}
+              id="messageTemplate"
+              placeholder="Use {nome} para personalizar"
+              value={formData.messageTemplate}
+              onChange={(e) => setFormData({ ...formData, messageTemplate: e.target.value })}
             />
             <p className="text-xs text-muted-foreground">
-              Ex: Contact, Lead, PageView
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="facebookToken">Token de API do Facebook (opcional)</Label>
-            <Input
-              id="facebookToken"
-              type="password"
-              placeholder="Token de acesso da Conversions API"
-              value={formData.facebookToken}
-              onChange={(e) => setFormData({ ...formData, facebookToken: e.target.value })}
-            />
-            <p className="text-xs text-muted-foreground">
-              Token de acesso para Facebook Conversions API
+              Use {"{nome}"} para incluir o nome do lead na mensagem
             </p>
           </div>
 
