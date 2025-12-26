@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ExternalLink, Edit, Trash2, Copy, Users, BarChart3 } from "lucide-react";
@@ -18,35 +19,20 @@ interface RedirectLink {
 
 export const LinkList = () => {
   const navigate = useNavigate();
+  const { currentWorkspace } = useWorkspace();
   const [links, setLinks] = useState<RedirectLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingLink, setEditingLink] = useState<RedirectLink | null>(null);
   const [viewingLeads, setViewingLeads] = useState<RedirectLink | null>(null);
 
   const fetchLinks = async () => {
+    if (!currentWorkspace) return;
+    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: workspace } = await supabase
-        .from("workspaces")
-        .select("id")
-        .eq("owner_id", user.id)
-        .single();
-
-      if (!workspace) {
-        const { data: newWorkspace } = await supabase
-          .from("workspaces")
-          .insert({ name: "Meu Workspace", owner_id: user.id })
-          .select()
-          .single();
-
-        if (!newWorkspace) return;
-      }
-
       const { data, error } = await supabase
         .from("redirect_links")
         .select("*")
+        .eq("workspace_id", currentWorkspace.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -60,7 +46,7 @@ export const LinkList = () => {
 
   useEffect(() => {
     fetchLinks();
-  }, []);
+  }, [currentWorkspace]);
 
   const copyLink = (slug: string) => {
     const url = `${window.location.origin}/r/${slug}`;
