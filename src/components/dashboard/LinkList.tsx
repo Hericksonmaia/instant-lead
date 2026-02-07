@@ -8,6 +8,14 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { EditLinkDialog } from "./EditLinkDialog";
 import { LeadsDialog } from "./LeadsDialog";
+import { TagBadge } from "@/components/tags/TagBadge";
+import { TagSelector } from "@/components/tags/TagSelector";
+
+interface TagType {
+  id: string;
+  name: string;
+  color: string;
+}
 
 interface RedirectLink {
   id: string;
@@ -15,6 +23,7 @@ interface RedirectLink {
   name: string;
   mode: string;
   created_at: string;
+  tags: TagType[];
 }
 
 export const LinkList = () => {
@@ -29,14 +38,46 @@ export const LinkList = () => {
     if (!currentWorkspace) return;
     
     try {
-      const { data, error } = await supabase
+      // Fetch links
+      const { data: linksData, error: linksError } = await supabase
         .from("redirect_links")
         .select("*")
         .eq("workspace_id", currentWorkspace.id)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setLinks(data || []);
+      if (linksError) throw linksError;
+      
+      if (!linksData || linksData.length === 0) {
+        setLinks([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch tags for all links
+      const linkIds = linksData.map((l) => l.id);
+      const { data: linkTagsData } = await supabase
+        .from("link_tags")
+        .select(`
+          link_id,
+          tag_id,
+          tags (id, name, color)
+        `)
+        .in("link_id", linkIds);
+
+      // Map tags to links
+      const linksWithTags: RedirectLink[] = linksData.map((link) => {
+        const linkTags = linkTagsData
+          ?.filter((lt) => lt.link_id === link.id)
+          .map((lt) => lt.tags as unknown as TagType)
+          .filter(Boolean) || [];
+        
+        return {
+          ...link,
+          tags: linkTags,
+        };
+      });
+
+      setLinks(linksWithTags);
     } catch (error: any) {
       toast.error("Erro ao carregar links");
     } finally {
@@ -91,11 +132,27 @@ export const LinkList = () => {
             className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
           >
             <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <h3 className="font-semibold">{link.name}</h3>
                 <Badge variant={link.mode === "form" ? "default" : "secondary"}>
                   {link.mode === "form" ? "Formulário" : "Direto"}
                 </Badge>
+                {link.tags.map((tag) => (
+                  <TagBadge
+                    key={tag.id}
+                    name={tag.name}
+                    color={tag.color}
+                  />
+                ))}
+                <TagSelector
+                  linkId={link.id}
+                  selectedTags={link.tags}
+                  onTagsChange={(newTags) => {
+                    setLinks(links.map((l) =>
+                      l.id === link.id ? { ...l, tags: newTags } : l
+                    ));
+                  }}
+                />
               </div>
               <p className="text-sm text-muted-foreground">
                 {window.location.origin}/r/{link.slug}
