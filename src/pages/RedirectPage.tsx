@@ -121,30 +121,43 @@ const RedirectPage = () => {
     setSubmitting(true);
 
     try {
-      const { data: contactId } = await supabase.rpc("get_next_contact", {
+      const { data: contactId, error: rpcError } = await supabase.rpc("get_next_contact", {
         p_link_id: link.id,
       });
 
-      if (!contactId) {
-        toast.error("Nenhum atendente disponível");
+      if (rpcError) {
+        console.error("RPC error:", rpcError);
+        toast.error("Erro ao buscar atendente");
+        setSubmitting(false);
         return;
       }
 
-      const { data: contact } = await supabase
+      if (!contactId) {
+        toast.error("Nenhum atendente disponível");
+        setSubmitting(false);
+        return;
+      }
+
+      const { data: contact, error: contactError } = await supabase
         .from("redirect_contacts")
         .select("phone")
         .eq("id", contactId)
         .single();
 
-      if (!contact) return;
+      if (contactError || !contact) {
+        console.error("Contact error:", contactError);
+        toast.error("Erro ao buscar contato");
+        setSubmitting(false);
+        return;
+      }
 
       // Get UTM params
       const urlParams = new URLSearchParams(window.location.search);
       const utmSource = urlParams.get("utm_source");
       const utmCampaign = urlParams.get("utm_campaign");
 
-      // Save lead
-      await supabase.from("leads").insert({
+      // Save lead (don't await - let it run in background)
+      supabase.from("leads").insert({
         link_id: link.id,
         contact_id: contactId,
         name: formData.name || null,
@@ -152,15 +165,13 @@ const RedirectPage = () => {
         redirected_to: contact.phone,
         utm_source: utmSource,
         utm_campaign: utmCampaign,
-        ip_address: await fetch("https://api.ipify.org?format=json")
-          .then((r) => r.json())
-          .then((d) => d.ip)
-          .catch(() => null),
         user_agent: navigator.userAgent,
+      }).then(({ error }) => {
+        if (error) console.error("Lead save error:", error);
       });
 
-      // Track conversion with user data
-      await trackEvent({
+      // Track conversion (don't await)
+      trackEvent({
         eventName: "Contact",
         eventSourceUrl: window.location.href,
         userData: {
@@ -175,16 +186,19 @@ const RedirectPage = () => {
         },
       });
 
-      // Redirect
-      let message = link.message_template;
+      // Redirect immediately
+      let message = link.message_template || "";
       if (formData.name) {
         message = message.replace(/{nome}/g, formData.name);
       }
       const encodedMessage = encodeURIComponent(message);
-      window.location.href = `https://wa.me/${contact.phone}?text=${encodedMessage}`;
+      const whatsappUrl = `https://wa.me/${contact.phone}?text=${encodedMessage}`;
+      
+      console.log("Redirecting to:", whatsappUrl);
+      window.location.href = whatsappUrl;
     } catch (error: any) {
+      console.error("Submit error:", error);
       toast.error("Erro ao enviar");
-    } finally {
       setSubmitting(false);
     }
   };
