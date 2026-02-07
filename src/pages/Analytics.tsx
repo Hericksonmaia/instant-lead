@@ -28,7 +28,7 @@ interface TopLink {
   leads: number;
 }
 
-const Analytics = () => {
+function AnalyticsContent() {
   const { currentWorkspace } = useWorkspace();
   const [loading, setLoading] = useState(true);
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
@@ -116,137 +116,143 @@ const Analytics = () => {
   }, [currentWorkspace]);
 
   return (
+    <div className="space-y-6">
+      {/* Summary Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Resumo dos últimos 30 dias
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <Skeleton className="h-8 w-32" />
+          ) : (
+            <div className="flex items-center gap-2">
+              <Users className="h-8 w-8 text-primary" />
+              <div>
+                <p className="text-3xl font-bold">{totalLeads}</p>
+                <p className="text-sm text-muted-foreground">leads capturados</p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            Leads por dia
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <Skeleton className="h-[300px] w-full" />
+          ) : dailyData.length === 0 ? (
+            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+              Nenhum dado disponível
+            </div>
+          ) : (
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={dailyData}>
+                  <defs>
+                    <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "var(--radius)",
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="leads"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    fill="url(#colorLeads)"
+                    name="Leads"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Top Links */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <LinkIcon className="h-5 w-5" />
+            Top 5 Links
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
+            </div>
+          ) : topLinks.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Nenhum link com leads ainda
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {topLinks.map((link, index) => (
+                <div
+                  key={link.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-bold text-muted-foreground">
+                      #{index + 1}
+                    </span>
+                    <span className="font-medium">{link.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-semibold">{link.leads}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+const Analytics = () => {
+  return (
     <DashboardLayout
       title="Analytics"
       description="Visualize o desempenho dos seus links"
     >
-      <div className="space-y-6">
-        {/* Summary Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Resumo dos últimos 30 dias
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <Skeleton className="h-8 w-32" />
-            ) : (
-              <div className="flex items-center gap-2">
-                <Users className="h-8 w-8 text-primary" />
-                <div>
-                  <p className="text-3xl font-bold">{totalLeads}</p>
-                  <p className="text-sm text-muted-foreground">leads capturados</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Leads por dia
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <Skeleton className="h-[300px] w-full" />
-            ) : dailyData.length === 0 ? (
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                Nenhum dado disponível
-              </div>
-            ) : (
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={dailyData}>
-                    <defs>
-                      <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 12 }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 12 }}
-                      tickLine={false}
-                      axisLine={false}
-                      allowDecimals={false}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "var(--radius)",
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="leads"
-                      stroke="hsl(var(--primary))"
-                      strokeWidth={2}
-                      fill="url(#colorLeads)"
-                      name="Leads"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Top Links */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <LinkIcon className="h-5 w-5" />
-              Top 5 Links
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="space-y-3">
-                {[...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-10 w-full" />
-                ))}
-              </div>
-            ) : topLinks.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Nenhum link com leads ainda
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {topLinks.map((link, index) => (
-                  <div
-                    key={link.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg font-bold text-muted-foreground">
-                        #{index + 1}
-                      </span>
-                      <span className="font-medium">{link.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-semibold">{link.leads}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <AnalyticsContent />
     </DashboardLayout>
   );
 };
