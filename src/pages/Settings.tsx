@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, Building2, Settings as SettingsIcon, Save } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const Settings = () => {
+function SettingsContent() {
   const { currentWorkspace, refetch } = useWorkspace();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -126,149 +126,155 @@ const Settings = () => {
   };
 
   return (
+    <Tabs defaultValue="profile" className="space-y-6">
+      <TabsList>
+        <TabsTrigger value="profile" className="gap-2">
+          <User className="h-4 w-4" />
+          Perfil
+        </TabsTrigger>
+        <TabsTrigger value="workspace" className="gap-2">
+          <Building2 className="h-4 w-4" />
+          Workspace
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="profile">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Informações do Perfil
+            </CardTitle>
+            <CardDescription>
+              Atualize suas informações pessoais
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {loading ? (
+              <div className="space-y-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="full_name">Nome completo</Label>
+                  <Input
+                    id="full_name"
+                    value={profile.full_name}
+                    onChange={(e) =>
+                      setProfile({ ...profile, full_name: e.target.value })
+                    }
+                    placeholder="Seu nome"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Telefone</Label>
+                  <Input
+                    id="phone"
+                    value={profile.phone}
+                    onChange={(e) =>
+                      setProfile({ ...profile, phone: e.target.value })
+                    }
+                    placeholder="(11) 99999-9999"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="company_name">Empresa</Label>
+                  <Input
+                    id="company_name"
+                    value={profile.company_name}
+                    onChange={(e) =>
+                      setProfile({ ...profile, company_name: e.target.value })
+                    }
+                    placeholder="Nome da empresa"
+                  />
+                </div>
+                <Button onClick={saveProfile} disabled={saving}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {saving ? "Salvando..." : "Salvar Perfil"}
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="workspace">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Configurações do Workspace
+            </CardTitle>
+            <CardDescription>
+              Configure o workspace "{currentWorkspace?.name}"
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {loading ? (
+              <div className="space-y-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="workspace_name">Nome do Workspace</Label>
+                  <Input
+                    id="workspace_name"
+                    value={workspace.name}
+                    onChange={(e) =>
+                      setWorkspace({ ...workspace, name: e.target.value })
+                    }
+                    placeholder="Nome do workspace"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pixel_id">Facebook Pixel ID</Label>
+                  <Input
+                    id="pixel_id"
+                    value={workspace.facebook_pixel_id}
+                    onChange={(e) =>
+                      setWorkspace({ ...workspace, facebook_pixel_id: e.target.value })
+                    }
+                    placeholder="Ex: 1234567890123456"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="access_token">Facebook Access Token</Label>
+                  <Input
+                    id="access_token"
+                    type="password"
+                    value={workspace.facebook_access_token}
+                    onChange={(e) =>
+                      setWorkspace({ ...workspace, facebook_access_token: e.target.value })
+                    }
+                    placeholder="Token de acesso da Conversions API"
+                  />
+                </div>
+                <Button onClick={saveWorkspace} disabled={saving}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {saving ? "Salvando..." : "Salvar Workspace"}
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+const Settings = () => {
+  return (
     <DashboardLayout
       title="Configurações"
       description="Gerencie seu perfil e workspace"
     >
-      <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="profile" className="gap-2">
-            <User className="h-4 w-4" />
-            Perfil
-          </TabsTrigger>
-          <TabsTrigger value="workspace" className="gap-2">
-            <Building2 className="h-4 w-4" />
-            Workspace
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="profile">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Informações do Perfil
-              </CardTitle>
-              <CardDescription>
-                Atualize suas informações pessoais
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {loading ? (
-                <div className="space-y-4">
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="full_name">Nome completo</Label>
-                    <Input
-                      id="full_name"
-                      value={profile.full_name}
-                      onChange={(e) =>
-                        setProfile({ ...profile, full_name: e.target.value })
-                      }
-                      placeholder="Seu nome"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Telefone</Label>
-                    <Input
-                      id="phone"
-                      value={profile.phone}
-                      onChange={(e) =>
-                        setProfile({ ...profile, phone: e.target.value })
-                      }
-                      placeholder="(11) 99999-9999"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="company_name">Empresa</Label>
-                    <Input
-                      id="company_name"
-                      value={profile.company_name}
-                      onChange={(e) =>
-                        setProfile({ ...profile, company_name: e.target.value })
-                      }
-                      placeholder="Nome da empresa"
-                    />
-                  </div>
-                  <Button onClick={saveProfile} disabled={saving}>
-                    <Save className="h-4 w-4 mr-2" />
-                    {saving ? "Salvando..." : "Salvar Perfil"}
-                  </Button>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="workspace">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Configurações do Workspace
-              </CardTitle>
-              <CardDescription>
-                Configure o workspace "{currentWorkspace?.name}"
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {loading ? (
-                <div className="space-y-4">
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="workspace_name">Nome do Workspace</Label>
-                    <Input
-                      id="workspace_name"
-                      value={workspace.name}
-                      onChange={(e) =>
-                        setWorkspace({ ...workspace, name: e.target.value })
-                      }
-                      placeholder="Nome do workspace"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="pixel_id">Facebook Pixel ID</Label>
-                    <Input
-                      id="pixel_id"
-                      value={workspace.facebook_pixel_id}
-                      onChange={(e) =>
-                        setWorkspace({ ...workspace, facebook_pixel_id: e.target.value })
-                      }
-                      placeholder="Ex: 1234567890123456"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="access_token">Facebook Access Token</Label>
-                    <Input
-                      id="access_token"
-                      type="password"
-                      value={workspace.facebook_access_token}
-                      onChange={(e) =>
-                        setWorkspace({ ...workspace, facebook_access_token: e.target.value })
-                      }
-                      placeholder="Token de acesso da Conversions API"
-                    />
-                  </div>
-                  <Button onClick={saveWorkspace} disabled={saving}>
-                    <Save className="h-4 w-4 mr-2" />
-                    {saving ? "Salvando..." : "Salvar Workspace"}
-                  </Button>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      <SettingsContent />
     </DashboardLayout>
   );
 };
