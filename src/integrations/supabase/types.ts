@@ -71,6 +71,42 @@ export type Database = {
           },
         ]
       }
+      link_tags: {
+        Row: {
+          created_at: string | null
+          id: string
+          link_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          link_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          link_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "link_tags_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "redirect_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "link_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       logs: {
         Row: {
           created_at: string | null
@@ -235,6 +271,38 @@ export type Database = {
             columns: ["link_id"]
             isOneToOne: true
             referencedRelation: "redirect_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tags: {
+        Row: {
+          color: string
+          created_at: string | null
+          id: string
+          name: string
+          workspace_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string | null
+          id?: string
+          name: string
+          workspace_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tags_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
