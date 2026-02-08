@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, Building2, Settings as SettingsIcon, Save } from "lucide-react";
+import { User, Building2, Save, MessageSquare } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EvolutionAPISettings } from "@/components/settings/EvolutionAPISettings";
 
 function SettingsContent() {
   const { currentWorkspace, refetch } = useWorkspace();
@@ -135,6 +136,10 @@ function SettingsContent() {
         <TabsTrigger value="workspace" className="gap-2">
           <Building2 className="h-4 w-4" />
           Workspace
+        </TabsTrigger>
+        <TabsTrigger value="whatsapp" className="gap-2">
+          <MessageSquare className="h-4 w-4" />
+          WhatsApp
         </TabsTrigger>
       </TabsList>
 
@@ -263,6 +268,10 @@ function SettingsContent() {
             )}
           </CardContent>
         </Card>
+      </TabsContent>
+
+      <TabsContent value="whatsapp">
+        <EvolutionAPISettings />
       </TabsContent>
     </Tabs>
   );
