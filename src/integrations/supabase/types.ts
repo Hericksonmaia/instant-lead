@@ -328,9 +328,53 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_messages: {
+        Row: {
+          created_at: string | null
+          id: string
+          lead_id: string | null
+          message_content: string
+          message_type: string
+          phone_number: string
+          raw_payload: Json
+          timestamp: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lead_id?: string | null
+          message_content: string
+          message_type: string
+          phone_number: string
+          raw_payload: Json
+          timestamp: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lead_id?: string | null
+          message_content?: string
+          message_type?: string
+          phone_number?: string
+          raw_payload?: Json
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspaces: {
         Row: {
           created_at: string | null
+          evolution_api_key: string | null
+          evolution_api_url: string | null
+          evolution_instance_name: string | null
           facebook_access_token: string | null
           facebook_pixel_id: string | null
           id: string
@@ -340,6 +384,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          evolution_api_key?: string | null
+          evolution_api_url?: string | null
+          evolution_instance_name?: string | null
           facebook_access_token?: string | null
           facebook_pixel_id?: string | null
           id?: string
@@ -349,6 +396,9 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          evolution_api_key?: string | null
+          evolution_api_url?: string | null
+          evolution_instance_name?: string | null
           facebook_access_token?: string | null
           facebook_pixel_id?: string | null
           id?: string

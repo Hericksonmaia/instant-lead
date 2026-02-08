@@ -16,9 +16,16 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Download, Search, User, Phone, Calendar, Link as LinkIcon } from "lucide-react";
+import { Download, Search, User, Phone, Calendar, Link as LinkIcon, MessageSquare, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MessageHistoryModal } from "@/components/leads/MessageHistoryModal";
+import {
+  getLeadsWithMessages,
+  hasRecentMessage,
+  truncateMessage,
+  type LeadWithMessages,
+} from "@/lib/api/whatsapp";
 
 type Lead = Tables<"leads"> & {
   redirect_links?: { name: string; slug: string } | null;
@@ -29,6 +36,9 @@ function LeadsContent() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [messagesMap, setMessagesMap] = useState<Map<string, LeadWithMessages>>(new Map());
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
 
   useEffect(() => {
     if (!currentWorkspace) return;
@@ -65,6 +75,17 @@ function LeadsContent() {
         console.error("Error fetching leads:", error);
       } else {
         setLeads(data || []);
+        
+        // Fetch messages for all leads
+        if (data && data.length > 0) {
+          try {
+            const leadIds = data.map((l) => l.id);
+            const messages = await getLeadsWithMessages(leadIds);
+            setMessagesMap(messages);
+          } catch (err) {
+            console.error("Error fetching messages:", err);
+          }
+        }
       }
 
       setLoading(false);
@@ -72,6 +93,11 @@ function LeadsContent() {
 
     fetchLeads();
   }, [currentWorkspace]);
+
+  const handleLeadClick = (lead: Lead) => {
+    setSelectedLead(lead);
+    setHistoryModalOpen(true);
+  };
 
   const filteredLeads = leads.filter((lead) => {
     const search = searchTerm.toLowerCase();
@@ -148,58 +174,108 @@ function LeadsContent() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Telefone</TableHead>
                   <TableHead>Link</TableHead>
+                  <TableHead>Primeira Msg</TableHead>
+                  <TableHead>Última Msg</TableHead>
                   <TableHead>Data</TableHead>
                   <TableHead>UTM</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLeads.map((lead) => (
-                  <TableRow key={lead.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        {lead.name || "-"}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        {lead.phone || "-"}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <LinkIcon className="h-4 w-4 text-muted-foreground" />
-                        {lead.redirect_links?.name || "-"}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        {lead.created_at
-                          ? format(new Date(lead.created_at), "dd/MM HH:mm", { locale: ptBR })
-                          : "-"}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1 flex-wrap">
-                        {lead.utm_source && (
-                          <Badge variant="outline" className="text-xs">
-                            {lead.utm_source}
-                          </Badge>
-                        )}
-                        {lead.utm_campaign && (
-                          <Badge variant="secondary" className="text-xs">
-                            {lead.utm_campaign}
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredLeads.map((lead) => {
+                  const leadMessages = messagesMap.get(lead.id);
+                  const isRecent = hasRecentMessage(leadMessages?.last_message);
+                  
+                  return (
+                    <TableRow
+                      key={lead.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleLeadClick(lead)}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          {lead.name || "-"}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-muted-foreground" />
+                          {lead.phone || "-"}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                          {lead.redirect_links?.name || "-"}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 max-w-[150px]">
+                          {leadMessages?.first_message ? (
+                            <span className="text-sm text-muted-foreground truncate" title={leadMessages.first_message.message_content}>
+                              {truncateMessage(leadMessages.first_message.message_content, 30)}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 max-w-[150px]">
+                          {leadMessages?.last_message ? (
+                            <>
+                              <span className="text-sm text-muted-foreground truncate" title={leadMessages.last_message.message_content}>
+                                {truncateMessage(leadMessages.last_message.message_content, 30)}
+                              </span>
+                              {isRecent && (
+                                <Badge variant="outline" className="bg-accent text-accent-foreground shrink-0">
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  Recente
+                                </Badge>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          {lead.created_at
+                            ? format(new Date(lead.created_at), "dd/MM HH:mm", { locale: ptBR })
+                            : "-"}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1 flex-wrap">
+                          {lead.utm_source && (
+                            <Badge variant="outline" className="text-xs">
+                              {lead.utm_source}
+                            </Badge>
+                          )}
+                          {lead.utm_campaign && (
+                            <Badge variant="secondary" className="text-xs">
+                              {lead.utm_campaign}
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
+        )}
+
+        {selectedLead && (
+          <MessageHistoryModal
+            open={historyModalOpen}
+            onOpenChange={setHistoryModalOpen}
+            leadId={selectedLead.id}
+            leadName={selectedLead.name}
+          />
         )}
       </CardContent>
     </Card>
