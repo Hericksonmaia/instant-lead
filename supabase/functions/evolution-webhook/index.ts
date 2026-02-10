@@ -48,6 +48,39 @@ function normalizePhone(phone: string): string {
   return normalized;
 }
 
+function generatePhoneVariants(phone: string): string[] {
+  const variants = new Set<string>();
+  
+  // Remove country code if present
+  let base = phone;
+  if (base.startsWith('55') && base.length > 11) {
+    base = base.substring(2);
+  }
+  
+  variants.add(base);
+  
+  // 10 digits (DDD + 8): add 9th digit after DDD
+  if (base.length === 10) {
+    const withNinth = base.substring(0, 2) + '9' + base.substring(2);
+    variants.add(withNinth);
+    variants.add('55' + base);
+    variants.add('55' + withNinth);
+  }
+  
+  // 11 digits (DDD + 9 digits): remove 9th digit
+  if (base.length === 11 && base[2] === '9') {
+    const withoutNinth = base.substring(0, 2) + base.substring(3);
+    variants.add(withoutNinth);
+    variants.add('55' + base);
+    variants.add('55' + withoutNinth);
+  }
+  
+  // Also add with country code
+  variants.add('55' + base);
+  
+  return Array.from(variants);
+}
+
 function extractMessageContent(message: EvolutionPayload['data']['message']): string {
   if (!message) return '[Mensagem vazia]';
   
@@ -139,12 +172,10 @@ serve(async (req) => {
       timestamp: timestamp.toISOString(),
     });
 
-    // Find lead by phone number (try multiple formats)
-    const phonesToCheck = [
-      normalizedPhone,
-      `55${normalizedPhone}`,
-      normalizedPhone.startsWith('55') ? normalizedPhone.substring(2) : null,
-    ].filter(Boolean);
+    // Find lead by phone number (try multiple formats including 9th digit variants)
+    const phonesToCheck = generatePhoneVariants(normalizedPhone);
+    
+    console.log("Phone variants to check:", phonesToCheck);
 
     let leadId: string | null = null;
     let workspaceData: any = null;
@@ -170,7 +201,7 @@ serve(async (req) => {
         leadId = leads[0].id;
         const link = leads[0].redirect_links as any;
         workspaceData = link?.workspaces;
-        console.log("Found lead:", leadId);
+        console.log("Found lead:", leadId, "using phone variant:", phone);
         break;
       }
     }
