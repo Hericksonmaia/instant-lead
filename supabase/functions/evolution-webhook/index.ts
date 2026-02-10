@@ -206,8 +206,62 @@ serve(async (req) => {
       }
     }
 
+    // If no lead found by phone, try to find a recent lead with NULL phone 
+    // from the same instance (direct redirect mode)
     if (!leadId) {
-      console.log("No lead found for phone:", normalizedPhone);
+      console.log("No lead found by phone, trying to find recent phoneless lead for instance:", payload.instance);
+      
+      // Find workspace by evolution instance name
+      const { data: workspace } = await supabase
+        .from('workspaces')
+        .select('id')
+        .eq('evolution_instance_name', payload.instance)
+        .single();
+      
+      if (workspace) {
+        // Find recent leads with NULL phone from this workspace's links
+        const { data: recentLeads } = await supabase
+          .from('leads')
+          .select(`
+            id,
+            redirect_links (
+              workspace_id,
+              workspaces (
+                facebook_access_token,
+                facebook_pixel_id
+              )
+            )
+          `)
+          .is('phone', null)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        
+        // Filter by workspace
+        if (recentLeads) {
+          const matchingLead = recentLeads.find((lead: any) => {
+            const link = lead.redirect_links as any;
+            return link?.workspace_id === workspace.id;
+          });
+          
+          if (matchingLead) {
+            leadId = matchingLead.id;
+            const link = matchingLead.redirect_links as any;
+            workspaceData = link?.workspaces;
+            
+            // Update lead with the phone number
+            await supabase
+              .from('leads')
+              .update({ phone: normalizedPhone })
+              .eq('id', leadId);
+            
+            console.log("Found phoneless lead:", leadId, "- updated phone to:", normalizedPhone);
+          }
+        }
+      }
+      
+      if (!leadId) {
+        console.log("No lead found for phone:", normalizedPhone);
+      }
     }
 
     // Check if this is the first message for this lead
