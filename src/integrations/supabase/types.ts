@@ -14,16 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      lead_tags: {
+        Row: {
+          created_at: string | null
+          id: string
+          lead_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lead_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lead_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_tags_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           contact_id: string | null
           created_at: string | null
+          event_source_url: string | null
+          fbc: string | null
+          fbp: string | null
           id: string
           ip_address: string | null
           link_id: string
           name: string | null
           phone: string | null
           redirected_to: string | null
+          sale_currency: string | null
+          sale_date: string | null
+          sale_value: number | null
+          sold: boolean | null
           user_agent: string | null
           utm_campaign: string | null
           utm_source: string | null
@@ -31,12 +74,19 @@ export type Database = {
         Insert: {
           contact_id?: string | null
           created_at?: string | null
+          event_source_url?: string | null
+          fbc?: string | null
+          fbp?: string | null
           id?: string
           ip_address?: string | null
           link_id: string
           name?: string | null
           phone?: string | null
           redirected_to?: string | null
+          sale_currency?: string | null
+          sale_date?: string | null
+          sale_value?: number | null
+          sold?: boolean | null
           user_agent?: string | null
           utm_campaign?: string | null
           utm_source?: string | null
@@ -44,12 +94,19 @@ export type Database = {
         Update: {
           contact_id?: string | null
           created_at?: string | null
+          event_source_url?: string | null
+          fbc?: string | null
+          fbp?: string | null
           id?: string
           ip_address?: string | null
           link_id?: string
           name?: string | null
           phone?: string | null
           redirected_to?: string | null
+          sale_currency?: string | null
+          sale_date?: string | null
+          sale_value?: number | null
+          sold?: boolean | null
           user_agent?: string | null
           utm_campaign?: string | null
           utm_source?: string | null

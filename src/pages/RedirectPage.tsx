@@ -9,6 +9,11 @@ import { Loader2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useMetaPixel } from "@/hooks/useMetaPixel";
 
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? match[2] : null;
+}
+
 const RedirectPage = () => {
   const { slug } = useParams();
   const [link, setLink] = useState<any>(null);
@@ -84,6 +89,10 @@ const RedirectPage = () => {
       const utmSource = urlParams.get("utm_source");
       const utmCampaign = urlParams.get("utm_campaign");
 
+      // Get Meta cookies
+      const fbc = getCookie("_fbc");
+      const fbp = getCookie("_fbp");
+
       // Save lead
       await supabase.from("leads").insert({
         link_id: linkData.id,
@@ -96,7 +105,10 @@ const RedirectPage = () => {
           .then((d) => d.ip)
           .catch(() => null),
         user_agent: navigator.userAgent,
-      });
+        fbc: fbc || null,
+        fbp: fbp || null,
+        event_source_url: window.location.href,
+      } as any);
 
       // Track conversion
       await trackEvent({
@@ -156,6 +168,10 @@ const RedirectPage = () => {
       const utmSource = urlParams.get("utm_source");
       const utmCampaign = urlParams.get("utm_campaign");
 
+      // Get Meta cookies
+      const fbc = getCookie("_fbc");
+      const fbp = getCookie("_fbp");
+
       // Save lead (don't await - let it run in background)
       supabase.from("leads").insert({
         link_id: link.id,
@@ -166,7 +182,10 @@ const RedirectPage = () => {
         utm_source: utmSource,
         utm_campaign: utmCampaign,
         user_agent: navigator.userAgent,
-      }).then(({ error }) => {
+        fbc: fbc || null,
+        fbp: fbp || null,
+        event_source_url: window.location.href,
+      } as any).then(({ error }) => {
         if (error) console.error("Lead save error:", error);
       });
 

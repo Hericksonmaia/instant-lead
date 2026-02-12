@@ -16,10 +16,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Download, Search, User, Phone, Calendar, Link as LinkIcon, MessageSquare, Clock } from "lucide-react";
+import { Download, Search, User, Phone, Calendar, Link as LinkIcon, MessageSquare, Clock, DollarSign, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MessageHistoryModal } from "@/components/leads/MessageHistoryModal";
+import { SaleDialog } from "@/components/leads/SaleDialog";
 import {
   getLeadsWithMessages,
   hasRecentMessage,
@@ -29,6 +30,9 @@ import {
 
 type Lead = Tables<"leads"> & {
   redirect_links?: { name: string; slug: string } | null;
+  sold?: boolean;
+  sale_value?: number;
+  sale_currency?: string;
 };
 
 function LeadsContent() {
@@ -39,6 +43,8 @@ function LeadsContent() {
   const [messagesMap, setMessagesMap] = useState<Map<string, LeadWithMessages>>(new Map());
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [saleDialogOpen, setSaleDialogOpen] = useState(false);
+  const [saleLeadTarget, setSaleLeadTarget] = useState<Lead | null>(null);
 
   useEffect(() => {
     if (!currentWorkspace) return;
@@ -97,6 +103,39 @@ function LeadsContent() {
   const handleLeadClick = (lead: Lead) => {
     setSelectedLead(lead);
     setHistoryModalOpen(true);
+  };
+
+  const handleSaleClick = (e: React.MouseEvent, lead: Lead) => {
+    e.stopPropagation();
+    setSaleLeadTarget(lead);
+    setSaleDialogOpen(true);
+  };
+
+  const fetchLeadsAgain = () => {
+    if (!currentWorkspace) return;
+    // Re-trigger effect
+    setLoading(true);
+    supabase
+      .from("redirect_links")
+      .select("id")
+      .eq("workspace_id", currentWorkspace.id)
+      .then(({ data: links }) => {
+        if (!links || links.length === 0) {
+          setLeads([]);
+          setLoading(false);
+          return;
+        }
+        const linkIds = links.map((l) => l.id);
+        supabase
+          .from("leads")
+          .select("*, redirect_links (name, slug)")
+          .in("link_id", linkIds)
+          .order("created_at", { ascending: false })
+          .then(({ data }) => {
+            setLeads((data || []) as Lead[]);
+            setLoading(false);
+          });
+      });
   };
 
   const filteredLeads = leads.filter((lead) => {
@@ -176,8 +215,9 @@ function LeadsContent() {
                   <TableHead>Link</TableHead>
                   <TableHead>Primeira Msg</TableHead>
                   <TableHead>Última Msg</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>UTM</TableHead>
+                   <TableHead>Data</TableHead>
+                   <TableHead>Venda</TableHead>
+                   <TableHead>UTM</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -248,6 +288,24 @@ function LeadsContent() {
                         </div>
                       </TableCell>
                       <TableCell>
+                        {(lead as any).sold ? (
+                          <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            R$ {(lead as any).sale_value?.toFixed(2)}
+                          </Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs h-7"
+                            onClick={(e) => handleSaleClick(e, lead)}
+                          >
+                            <DollarSign className="h-3 w-3 mr-1" />
+                            Venda
+                          </Button>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <div className="flex gap-1 flex-wrap">
                           {lead.utm_source && (
                             <Badge variant="outline" className="text-xs">
@@ -275,6 +333,16 @@ function LeadsContent() {
             onOpenChange={setHistoryModalOpen}
             leadId={selectedLead.id}
             leadName={selectedLead.name}
+          />
+        )}
+
+        {saleLeadTarget && (
+          <SaleDialog
+            open={saleDialogOpen}
+            onOpenChange={setSaleDialogOpen}
+            leadId={saleLeadTarget.id}
+            leadName={saleLeadTarget.name}
+            onSaleRegistered={fetchLeadsAgain}
           />
         )}
       </CardContent>
