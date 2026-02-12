@@ -140,6 +140,15 @@ serve(async (req) => {
       });
     }
 
+    // Ignore group messages (only process private/individual chats)
+    if (payload.data.key.remoteJid.endsWith('@g.us')) {
+      console.log("Ignoring group message from:", payload.data.key.remoteJid);
+      return new Response(JSON.stringify({ message: "Group message ignored" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Ignore messages sent by the business (fromMe = true)
     if (payload.data.key.fromMe) {
       console.log("Ignoring outgoing message");
