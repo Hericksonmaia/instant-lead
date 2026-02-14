@@ -211,6 +211,15 @@ serve(async (req) => {
         const link = leads[0].redirect_links as any;
         workspaceData = link?.workspaces;
         console.log("Found lead:", leadId, "using phone variant:", phone);
+        
+        // Update name from pushName if lead has no name yet
+        if (payload.data.pushName) {
+          await supabase
+            .from('leads')
+            .update({ name: payload.data.pushName })
+            .eq('id', leadId)
+            .is('name', null);
+        }
         break;
       }
     }
@@ -257,10 +266,14 @@ serve(async (req) => {
             const link = matchingLead.redirect_links as any;
             workspaceData = link?.workspaces;
             
-            // Update lead with the phone number
+            // Update lead with the phone number and name (pushName from WhatsApp)
+            const updateData: Record<string, any> = { phone: normalizedPhone };
+            if (payload.data.pushName) {
+              updateData.name = payload.data.pushName;
+            }
             await supabase
               .from('leads')
-              .update({ phone: normalizedPhone })
+              .update(updateData)
               .eq('id', leadId);
             
             console.log("Found phoneless lead:", leadId, "- updated phone to:", normalizedPhone);
