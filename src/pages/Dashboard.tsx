@@ -11,24 +11,32 @@ import {
   TrendingUp, 
   ArrowRight,
   Calendar,
-  Plus
+  Plus,
+  DollarSign,
+  CheckCircle2,
+  BarChart3,
+  Percent,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AreaChart,
   Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { format, subDays, startOfDay, endOfDay, startOfWeek, startOfMonth } from "date-fns";
+import { format, subDays, startOfDay, startOfWeek, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface DailyData {
   date: string;
   leads: number;
+  vendas: number;
+  receita: number;
 }
 
 interface RecentLead {
@@ -37,7 +45,19 @@ interface RecentLead {
   phone: string | null;
   created_at: string | null;
   link_name: string;
+  sold: boolean;
+  sale_value: number | null;
 }
+
+interface SalesStats {
+  totalRevenue: number;
+  totalSales: number;
+  conversionRate: number;
+  avgTicket: number;
+}
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 
 const DashboardContent = () => {
   const navigate = useNavigate();
@@ -49,6 +69,12 @@ const DashboardContent = () => {
     leadsToday: 0,
     leadsWeek: 0,
     leadsMonth: 0,
+  });
+  const [salesStats, setSalesStats] = useState<SalesStats>({
+    totalRevenue: 0,
+    totalSales: 0,
+    conversionRate: 0,
+    avgTicket: 0,
   });
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
   const [recentLeads, setRecentLeads] = useState<RecentLead[]>([]);
@@ -65,13 +91,8 @@ const DashboardContent = () => {
         .eq("workspace_id", currentWorkspace.id);
 
       if (!links || links.length === 0) {
-        setStats({
-          totalLinks: 0,
-          totalLeads: 0,
-          leadsToday: 0,
-          leadsWeek: 0,
-          leadsMonth: 0,
-        });
+        setStats({ totalLinks: 0, totalLeads: 0, leadsToday: 0, leadsWeek: 0, leadsMonth: 0 });
+        setSalesStats({ totalRevenue: 0, totalSales: 0, conversionRate: 0, avgTicket: 0 });
         setDailyData([]);
         setRecentLeads([]);
         setLoading(false);
@@ -88,7 +109,7 @@ const DashboardContent = () => {
 
       const { data: allLeads } = await supabase
         .from("leads")
-        .select("id, link_id, created_at, name, phone")
+        .select("id, link_id, created_at, name, phone, sold, sale_value, sale_date")
         .in("link_id", linkIds)
         .order("created_at", { ascending: false });
 
@@ -97,15 +118,10 @@ const DashboardContent = () => {
         return;
       }
 
-      const leadsToday = allLeads.filter(
-        (l) => l.created_at && l.created_at >= todayStart
-      ).length;
-      const leadsWeek = allLeads.filter(
-        (l) => l.created_at && l.created_at >= weekStart
-      ).length;
-      const leadsMonth = allLeads.filter(
-        (l) => l.created_at && l.created_at >= monthStart
-      ).length;
+      // Lead stats
+      const leadsToday = allLeads.filter((l) => l.created_at && l.created_at >= todayStart).length;
+      const leadsWeek = allLeads.filter((l) => l.created_at && l.created_at >= weekStart).length;
+      const leadsMonth = allLeads.filter((l) => l.created_at && l.created_at >= monthStart).length;
 
       setStats({
         totalLinks: links.length,
@@ -115,19 +131,32 @@ const DashboardContent = () => {
         leadsMonth,
       });
 
+      // Sales stats
+      const soldLeads = allLeads.filter((l) => l.sold);
+      const totalRevenue = soldLeads.reduce((sum, l) => sum + (l.sale_value || 0), 0);
+      const totalSales = soldLeads.length;
+      const conversionRate = allLeads.length > 0 ? (totalSales / allLeads.length) * 100 : 0;
+      const avgTicket = totalSales > 0 ? totalRevenue / totalSales : 0;
+
+      setSalesStats({ totalRevenue, totalSales, conversionRate, avgTicket });
+
+      // Recent leads
       const recent = allLeads.slice(0, 5).map((lead) => ({
         id: lead.id,
         name: lead.name,
         phone: lead.phone,
         created_at: lead.created_at,
         link_name: linkMap.get(lead.link_id) || "Link",
+        sold: lead.sold || false,
+        sale_value: lead.sale_value,
       }));
       setRecentLeads(recent);
 
-      const dailyMap = new Map<string, number>();
+      // Daily chart data (last 14 days)
+      const dailyMap = new Map<string, { leads: number; vendas: number; receita: number }>();
       for (let i = 13; i >= 0; i--) {
         const date = format(subDays(now, i), "dd/MM");
-        dailyMap.set(date, 0);
+        dailyMap.set(date, { leads: 0, vendas: 0, receita: 0 });
       }
 
       const fourteenDaysAgo = subDays(now, 14).toISOString();
@@ -136,16 +165,35 @@ const DashboardContent = () => {
         .forEach((lead) => {
           if (lead.created_at) {
             const date = format(new Date(lead.created_at), "dd/MM");
-            if (dailyMap.has(date)) {
-              dailyMap.set(date, (dailyMap.get(date) || 0) + 1);
+            const entry = dailyMap.get(date);
+            if (entry) {
+              entry.leads += 1;
+            }
+          }
+        });
+
+      // Map sales by sale_date
+      soldLeads
+        .filter((l) => {
+          const d = l.sale_date || l.created_at;
+          return d && d >= fourteenDaysAgo;
+        })
+        .forEach((lead) => {
+          const d = lead.sale_date || lead.created_at;
+          if (d) {
+            const date = format(new Date(d), "dd/MM");
+            const entry = dailyMap.get(date);
+            if (entry) {
+              entry.vendas += 1;
+              entry.receita += lead.sale_value || 0;
             }
           }
         });
 
       setDailyData(
-        Array.from(dailyMap.entries()).map(([date, leads]) => ({
+        Array.from(dailyMap.entries()).map(([date, data]) => ({
           date,
-          leads,
+          ...data,
         }))
       );
 
@@ -165,7 +213,80 @@ const DashboardContent = () => {
 
   return (
     <div className="space-y-6">
-      {/* Stats Cards */}
+      {/* Sales KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Receita Total
+            </CardTitle>
+            <DollarSign className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-8 w-24" />
+            ) : (
+              <div className="text-2xl font-bold text-primary">
+                {formatCurrency(salesStats.totalRevenue)}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Vendas Realizadas
+            </CardTitle>
+            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <div className="text-2xl font-bold">{salesStats.totalSales}</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Taxa de Conversão
+            </CardTitle>
+            <Percent className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <div className="text-2xl font-bold">
+                {salesStats.conversionRate.toFixed(1)}%
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Ticket Médio
+            </CardTitle>
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-8 w-24" />
+            ) : (
+              <div className="text-2xl font-bold">
+                {formatCurrency(salesStats.avgTicket)}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Lead Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -175,11 +296,7 @@ const DashboardContent = () => {
             <LinkIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold">{stats.totalLinks}</div>
-            )}
+            {loading ? <Skeleton className="h-8 w-16" /> : <div className="text-2xl font-bold">{stats.totalLinks}</div>}
           </CardContent>
         </Card>
 
@@ -191,11 +308,7 @@ const DashboardContent = () => {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold text-primary">{stats.leadsToday}</div>
-            )}
+            {loading ? <Skeleton className="h-8 w-16" /> : <div className="text-2xl font-bold text-primary">{stats.leadsToday}</div>}
           </CardContent>
         </Card>
 
@@ -207,11 +320,7 @@ const DashboardContent = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold">{stats.leadsWeek}</div>
-            )}
+            {loading ? <Skeleton className="h-8 w-16" /> : <div className="text-2xl font-bold">{stats.leadsWeek}</div>}
           </CardContent>
         </Card>
 
@@ -223,32 +332,24 @@ const DashboardContent = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold">{stats.leadsMonth}</div>
-            )}
+            {loading ? <Skeleton className="h-8 w-16" /> : <div className="text-2xl font-bold">{stats.leadsMonth}</div>}
           </CardContent>
         </Card>
       </div>
 
-      {/* Chart and Recent Leads */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Chart */}
-        <Card className="lg:col-span-2">
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Leads Chart */}
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
-              Leads nos últimos 14 dias
+              Leads (14 dias)
             </CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
               <Skeleton className="h-[250px] w-full" />
-            ) : dailyData.length === 0 ? (
-              <div className="h-[250px] flex items-center justify-center text-muted-foreground">
-                Nenhum dado disponível
-              </div>
             ) : (
               <div className="h-[250px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -260,18 +361,8 @@ const DashboardContent = () => {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 11 }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 11 }}
-                      tickLine={false}
-                      axisLine={false}
-                      allowDecimals={false}
-                    />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "hsl(var(--card))",
@@ -294,8 +385,60 @@ const DashboardContent = () => {
           </CardContent>
         </Card>
 
-        {/* Recent Leads */}
+        {/* Sales Revenue Chart */}
         <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              Receita (14 dias)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-[250px] w-full" />
+            ) : (
+              <div className="h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dailyData}>
+                    <defs>
+                      <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.9} />
+                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis
+                      tick={{ fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v) => `R$${v}`}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "var(--radius)",
+                      }}
+                      formatter={(value: number) => [formatCurrency(value), "Receita"]}
+                    />
+                    <Bar
+                      dataKey="receita"
+                      fill="url(#colorRevenue)"
+                      radius={[4, 4, 0, 0]}
+                      name="Receita"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Leads + Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
@@ -314,11 +457,7 @@ const DashboardContent = () => {
               <div className="text-center py-8 text-muted-foreground">
                 <Users className="h-8 w-8 mx-auto mb-2 opacity-20" />
                 <p className="text-sm">Nenhum lead ainda</p>
-                <Button
-                  variant="link"
-                  className="mt-2"
-                  onClick={() => navigate("/links")}
-                >
+                <Button variant="link" className="mt-2" onClick={() => navigate("/links")}>
                   Criar primeiro link
                   <ArrowRight className="h-4 w-4 ml-1" />
                 </Button>
@@ -338,18 +477,21 @@ const DashboardContent = () => {
                         {lead.link_name}
                       </p>
                     </div>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                      {lead.created_at
-                        ? format(new Date(lead.created_at), "dd/MM HH:mm")
-                        : ""}
-                    </span>
+                    <div className="flex items-center gap-2 ml-2">
+                      {lead.sold && (
+                        <span className="text-xs font-medium text-primary">
+                          {formatCurrency(lead.sale_value || 0)}
+                        </span>
+                      )}
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {lead.created_at
+                          ? format(new Date(lead.created_at), "dd/MM HH:mm")
+                          : ""}
+                      </span>
+                    </div>
                   </div>
                 ))}
-                <Button
-                  variant="ghost"
-                  className="w-full mt-2"
-                  onClick={() => navigate("/leads")}
-                >
+                <Button variant="ghost" className="w-full mt-2" onClick={() => navigate("/leads")}>
                   Ver todos
                   <ArrowRight className="h-4 w-4 ml-1" />
                 </Button>
@@ -357,30 +499,30 @@ const DashboardContent = () => {
             )}
           </CardContent>
         </Card>
-      </div>
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Ações Rápidas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-3">
-            <Button onClick={() => navigate("/links")}>
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Link
-            </Button>
-            <Button variant="outline" onClick={() => navigate("/leads")}>
-              <Users className="h-4 w-4 mr-2" />
-              Ver Leads
-            </Button>
-            <Button variant="outline" onClick={() => navigate("/analytics")}>
-              <TrendingUp className="h-4 w-4 mr-2" />
-              Analytics
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Quick Actions */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Ações Rápidas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-3">
+              <Button onClick={() => navigate("/links")} className="w-full justify-start">
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Link
+              </Button>
+              <Button variant="outline" onClick={() => navigate("/leads")} className="w-full justify-start">
+                <Users className="h-4 w-4 mr-2" />
+                Ver Leads
+              </Button>
+              <Button variant="outline" onClick={() => navigate("/analytics")} className="w-full justify-start">
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Analytics
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
