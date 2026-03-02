@@ -117,6 +117,12 @@ export const CreateLinkDialog = ({ open, onOpenChange }: CreateLinkDialogProps) 
                   Direto (redireciona imediatamente)
                 </Label>
               </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="menu" id="menu" />
+                <Label htmlFor="menu" className="font-normal cursor-pointer">
+                  Menu (página com múltiplos links estilo bio)
+                </Label>
+              </div>
             </RadioGroup>
           </div>
 
