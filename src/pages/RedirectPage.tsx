@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useMetaPixel } from "@/hooks/useMetaPixel";
+import { MenuPage } from "@/components/redirect/MenuPage";
 
 function getCookie(name: string): string | null {
   const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
@@ -23,6 +24,7 @@ const RedirectPage = () => {
     name: "",
     phone: "",
   });
+  const [menuItems, setMenuItems] = useState<any[]>([]);
 
   const { trackEvent } = useMetaPixel(
     link ? { pixelId: "placeholder", linkId: link.id } : null
@@ -48,6 +50,16 @@ const RedirectPage = () => {
       // Direct redirect
       if (data.mode === "direct") {
         handleDirectRedirect(data);
+      }
+
+      // Menu mode - load menu items
+      if (data.mode === "menu") {
+        const { data: items } = await supabase
+          .from("menu_items" as any)
+          .select("*")
+          .eq("link_id", data.id)
+          .order("order_index");
+        setMenuItems((items as any[]) || []);
       }
     } catch (error: any) {
       toast.error("Link não encontrado");
@@ -228,6 +240,11 @@ const RedirectPage = () => {
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  // Menu mode
+  if (link?.mode === "menu") {
+    return <MenuPage link={link} menuItems={menuItems} />;
   }
 
   if (!link || link.mode === "direct") {

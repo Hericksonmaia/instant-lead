@@ -191,6 +191,44 @@ export type Database = {
         }
         Relationships: []
       }
+      menu_items: {
+        Row: {
+          created_at: string | null
+          icon: string | null
+          id: string
+          label: string
+          link_id: string
+          order_index: number
+          url: string
+        }
+        Insert: {
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          label: string
+          link_id: string
+          order_index?: number
+          url: string
+        }
+        Update: {
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          label?: string
+          link_id?: string
+          order_index?: number
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_items_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "redirect_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           company_name: string | null
@@ -259,6 +297,7 @@ export type Database = {
           capture_name: boolean | null
           capture_phone: boolean | null
           created_at: string | null
+          description: string | null
           headline: string | null
           id: string
           message_template: string | null
@@ -266,6 +305,11 @@ export type Database = {
           name: string
           slug: string
           subtitle: string | null
+          theme_bg_color: string | null
+          theme_button_bg: string | null
+          theme_button_text: string | null
+          theme_font: string | null
+          theme_text_color: string | null
           workspace_id: string
         }
         Insert: {
@@ -273,6 +317,7 @@ export type Database = {
           capture_name?: boolean | null
           capture_phone?: boolean | null
           created_at?: string | null
+          description?: string | null
           headline?: string | null
           id?: string
           message_template?: string | null
@@ -280,6 +325,11 @@ export type Database = {
           name: string
           slug: string
           subtitle?: string | null
+          theme_bg_color?: string | null
+          theme_button_bg?: string | null
+          theme_button_text?: string | null
+          theme_font?: string | null
+          theme_text_color?: string | null
           workspace_id: string
         }
         Update: {
@@ -287,6 +337,7 @@ export type Database = {
           capture_name?: boolean | null
           capture_phone?: boolean | null
           created_at?: string | null
+          description?: string | null
           headline?: string | null
           id?: string
           message_template?: string | null
@@ -294,6 +345,11 @@ export type Database = {
           name?: string
           slug?: string
           subtitle?: string | null
+          theme_bg_color?: string | null
+          theme_button_bg?: string | null
+          theme_button_text?: string | null
+          theme_font?: string | null
+          theme_text_color?: string | null
           workspace_id?: string
         }
         Relationships: [
