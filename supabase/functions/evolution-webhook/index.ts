@@ -114,12 +114,25 @@ serve(async (req) => {
   }
 
   try {
+    // Extract workspace_id from query param
+    const url = new URL(req.url);
+    const workspaceId = url.searchParams.get('workspace_id');
+    
+    if (!workspaceId) {
+      console.error("Missing workspace_id query parameter");
+      return new Response(JSON.stringify({ error: "Missing workspace_id" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const payload: EvolutionPayload = await req.json();
     
     console.log("Received Evolution webhook:", {
       event: payload.event,
       instance: payload.instance,
       fromMe: payload.data?.key?.fromMe,
+      workspaceId,
     });
 
     // Validate payload structure
@@ -189,100 +202,105 @@ serve(async (req) => {
     let leadId: string | null = null;
     let workspaceData: any = null;
 
-    for (const phone of phonesToCheck) {
-      const { data: leads, error } = await supabase
-        .from('leads')
-        .select(`
-          id,
-          redirect_links (
-            workspace_id,
-            workspaces (
-              facebook_access_token,
-              facebook_pixel_id
-            )
-          )
-        `)
-        .ilike('phone', `%${phone}%`)
-        .order('created_at', { ascending: false })
-        .limit(1);
+    // First, get workspace data for Meta CAPI
+    const { data: wsData } = await supabase
+      .from('workspaces')
+      .select('facebook_access_token, facebook_pixel_id')
+      .eq('id', workspaceId)
+      .single();
+    
+    workspaceData = wsData;
 
-      if (!error && leads && leads.length > 0) {
-        leadId = leads[0].id;
-        const link = leads[0].redirect_links as any;
-        workspaceData = link?.workspaces;
-        console.log("Found lead:", leadId, "using phone variant:", phone);
-        
-        // Update name from pushName if lead has no name yet
-        if (payload.data.pushName) {
-          await supabase
-            .from('leads')
-            .update({ name: payload.data.pushName })
-            .eq('id', leadId)
-            .is('name', null);
+    // Get all link IDs for this workspace
+    const { data: workspaceLinks } = await supabase
+      .from('redirect_links')
+      .select('id')
+      .eq('workspace_id', workspaceId);
+    
+    const linkIds = (workspaceLinks || []).map((l: any) => l.id);
+
+    if (linkIds.length > 0) {
+      for (const phone of phonesToCheck) {
+        const { data: leads, error } = await supabase
+          .from('leads')
+          .select('id')
+          .in('link_id', linkIds)
+          .ilike('phone', `%${phone}%`)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (!error && leads && leads.length > 0) {
+          leadId = leads[0].id;
+          console.log("Found lead:", leadId, "using phone variant:", phone);
+          
+          // Update name from pushName if lead has no name yet
+          if (payload.data.pushName) {
+            await supabase
+              .from('leads')
+              .update({ name: payload.data.pushName })
+              .eq('id', leadId)
+              .is('name', null);
+          }
+          break;
         }
-        break;
       }
     }
 
     // If no lead found by phone, try to find a recent lead with NULL phone 
-    // from the same instance (direct redirect mode)
-    if (!leadId) {
-      console.log("No lead found by phone, trying to find recent phoneless lead for instance:", payload.instance);
+    // from the same workspace (direct redirect mode)
+    if (!leadId && linkIds.length > 0) {
+      console.log("No lead found by phone, trying to find recent phoneless lead for workspace:", workspaceId);
       
-      // Find workspace by evolution instance name
-      const { data: workspace } = await supabase
-        .from('workspaces')
+      const { data: recentLeads } = await supabase
+        .from('leads')
         .select('id')
-        .eq('evolution_instance_name', payload.instance)
-        .single();
+        .in('link_id', linkIds)
+        .is('phone', null)
+        .order('created_at', { ascending: false })
+        .limit(1);
       
-      if (workspace) {
-        // Find recent leads with NULL phone from this workspace's links
-        const { data: recentLeads } = await supabase
-          .from('leads')
-          .select(`
-            id,
-            redirect_links (
-              workspace_id,
-              workspaces (
-                facebook_access_token,
-                facebook_pixel_id
-              )
-            )
-          `)
-          .is('phone', null)
-          .order('created_at', { ascending: false })
-          .limit(10);
+      if (recentLeads && recentLeads.length > 0) {
+        leadId = recentLeads[0].id;
         
-        // Filter by workspace
-        if (recentLeads) {
-          const matchingLead = recentLeads.find((lead: any) => {
-            const link = lead.redirect_links as any;
-            return link?.workspace_id === workspace.id;
-          });
-          
-          if (matchingLead) {
-            leadId = matchingLead.id;
-            const link = matchingLead.redirect_links as any;
-            workspaceData = link?.workspaces;
-            
-            // Update lead with the phone number and name (pushName from WhatsApp)
-            const updateData: Record<string, any> = { phone: normalizedPhone };
-            if (payload.data.pushName) {
-              updateData.name = payload.data.pushName;
-            }
-            await supabase
-              .from('leads')
-              .update(updateData)
-              .eq('id', leadId);
-            
-            console.log("Found phoneless lead:", leadId, "- updated phone to:", normalizedPhone);
-          }
+        // Update lead with the phone number and name (pushName from WhatsApp)
+        const updateData: Record<string, any> = { phone: normalizedPhone };
+        if (payload.data.pushName) {
+          updateData.name = payload.data.pushName;
         }
+        await supabase
+          .from('leads')
+          .update(updateData)
+          .eq('id', leadId);
+        
+        console.log("Found phoneless lead:", leadId, "- updated phone to:", normalizedPhone);
       }
       
       if (!leadId) {
-        console.log("No lead found for phone:", normalizedPhone);
+        // Create organic lead (message from unknown contact)
+        if (linkIds.length > 0) {
+          console.log("Creating organic lead for phone:", normalizedPhone, "in workspace:", workspaceId);
+          
+          const { data: newLead, error: createError } = await supabase
+            .from('leads')
+            .insert({
+              link_id: linkIds[0], // Associate with first link of workspace
+              phone: normalizedPhone,
+              name: payload.data.pushName || null,
+            })
+            .select('id')
+            .single();
+          
+          if (!createError && newLead) {
+            leadId = newLead.id;
+            console.log("Created organic lead:", leadId);
+          } else {
+            console.error("Error creating organic lead:", createError);
+          }
+        }
+        
+        if (!leadId) {
+          console.log("No lead found for phone:", normalizedPhone);
+        }
       }
     }
 
