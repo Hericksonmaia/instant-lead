@@ -106,7 +106,8 @@ export function EvolutionAPISettings() {
   };
 
   const getWebhookUrl = () => {
-    return `https://shifwuxxsaussklbgadr.supabase.co/functions/v1/evolution-webhook`;
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'shifwuxxsaussklbgadr';
+    return `https://${projectId}.supabase.co/functions/v1/evolution-webhook?workspace_id=${currentWorkspace?.id || ''}`;
   };
 
   if (loading) {
