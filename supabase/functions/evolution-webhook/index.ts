@@ -232,12 +232,12 @@ serve(async (req) => {
       // Find workspace by evolution instance name
       const { data: workspace } = await supabase
         .from('workspaces')
-        .select('id, facebook_access_token, facebook_pixel_id')
+        .select('id')
         .eq('evolution_instance_name', payload.instance)
         .single();
       
       if (workspace) {
-        // First, try to find recent leads with NULL phone from this workspace's links
+        // Find recent leads with NULL phone from this workspace's links
         const { data: recentLeads } = await supabase
           .from('leads')
           .select(`
@@ -277,47 +277,6 @@ serve(async (req) => {
               .eq('id', leadId);
             
             console.log("Found phoneless lead:", leadId, "- updated phone to:", normalizedPhone);
-          }
-        }
-
-        // If still no lead found, create an organic lead automatically
-        if (!leadId) {
-          console.log("Creating organic lead for phone:", normalizedPhone, "in workspace:", workspace.id);
-          
-          // Find the first link from this workspace to attach the lead
-          const { data: defaultLink } = await supabase
-            .from('redirect_links')
-            .select('id')
-            .eq('workspace_id', workspace.id)
-            .order('created_at', { ascending: true })
-            .limit(1)
-            .single();
-          
-          if (defaultLink) {
-            const newLeadData: Record<string, any> = {
-              link_id: defaultLink.id,
-              phone: normalizedPhone,
-              name: payload.data.pushName || null,
-            };
-
-            const { data: newLead, error: newLeadError } = await supabase
-              .from('leads')
-              .insert(newLeadData)
-              .select('id')
-              .single();
-            
-            if (newLeadError) {
-              console.error("Error creating organic lead:", newLeadError);
-            } else if (newLead) {
-              leadId = newLead.id;
-              workspaceData = {
-                facebook_access_token: workspace.facebook_access_token,
-                facebook_pixel_id: workspace.facebook_pixel_id,
-              };
-              console.log("Created organic lead:", leadId);
-            }
-          } else {
-            console.log("No links found in workspace, cannot create organic lead");
           }
         }
       }
