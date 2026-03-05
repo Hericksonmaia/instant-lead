@@ -526,7 +526,44 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_link_contacts: {
+        Args: { p_link_id: string }
+        Returns: {
+          contact_id: string
+          phone: string
+        }[]
+      }
+      get_menu_items: {
+        Args: { p_link_id: string }
+        Returns: {
+          icon: string
+          item_id: string
+          label: string
+          order_index: number
+          url: string
+        }[]
+      }
       get_next_contact: { Args: { p_link_id: string }; Returns: string }
+      get_redirect_data: {
+        Args: { p_slug: string }
+        Returns: {
+          button_text: string
+          capture_name: boolean
+          capture_phone: boolean
+          description: string
+          headline: string
+          link_id: string
+          message_template: string
+          mode: string
+          name: string
+          subtitle: string
+          theme_bg_color: string
+          theme_button_bg: string
+          theme_button_text: string
+          theme_font: string
+          theme_text_color: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

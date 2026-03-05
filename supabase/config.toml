@@ -2,3 +2,9 @@ project_id = "shifwuxxsaussklbgadr"
 
 [functions.evolution-webhook]
 verify_jwt = false
+
+[functions.meta-conversions-api]
+verify_jwt = false
+
+[functions.meta-purchase]
+verify_jwt = false

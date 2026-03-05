@@ -21,15 +21,41 @@ serve(async (req) => {
   }
 
   try {
+    // Verify JWT - require authenticated user
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    // Verify the user's identity
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const userId = claimsData.claims.sub;
+
     const { leadId, saleValue, saleCurrency } = await req.json();
 
     if (!leadId || !saleValue) {
       throw new Error("Missing required fields: leadId, saleValue");
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Use service role for data operations
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Fetch lead with link and workspace
     const { data: lead, error: leadError } = await supabase
@@ -40,6 +66,7 @@ serve(async (req) => {
           name,
           workspace_id,
           workspaces (
+            owner_id,
             facebook_access_token,
             facebook_pixel_id
           )
@@ -53,7 +80,15 @@ serve(async (req) => {
       throw new Error("Lead not found");
     }
 
+    // Verify the authenticated user owns this workspace
     const workspace = (lead.redirect_links as any)?.workspaces;
+    if (workspace?.owner_id !== userId) {
+      return new Response(JSON.stringify({ error: 'Forbidden: you do not own this workspace' }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const accessToken = workspace?.facebook_access_token;
     const pixelId = workspace?.facebook_pixel_id;
 
