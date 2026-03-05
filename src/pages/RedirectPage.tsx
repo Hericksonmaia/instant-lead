@@ -9,11 +9,17 @@ import { Loader2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useMetaPixel } from "@/hooks/useMetaPixel";
 import { MenuPage } from "@/components/redirect/MenuPage";
+import { z } from "zod";
 
 function getCookie(name: string): string | null {
   const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
   return match ? match[2] : null;
 }
+
+const leadSchema = z.object({
+  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100, "Nome muito longo").regex(/^[a-zA-ZÀ-ÿ\s'\-]+$/, "Nome contém caracteres inválidos"),
+  phone: z.string().min(8, "Telefone inválido").max(20, "Telefone muito longo").regex(/^[\d\s\(\)\+\-]+$/, "Telefone contém caracteres inválidos"),
+});
 
 const RedirectPage = () => {
   const { slug } = useParams();
@@ -27,7 +33,7 @@ const RedirectPage = () => {
   const [menuItems, setMenuItems] = useState<any[]>([]);
 
   const { trackEvent } = useMetaPixel(
-    link ? { pixelId: "placeholder", linkId: link.id } : null
+    link ? { pixelId: "placeholder", linkId: link.link_id || link.id } : null
   );
 
   useEffect(() => {
@@ -36,30 +42,28 @@ const RedirectPage = () => {
 
   const loadLink = async () => {
     try {
-      const { data, error } = await supabase
-        .from("redirect_links")
-        .select("*")
-        .eq("slug", slug)
-        .single();
+      // Use scoped RPC instead of direct table query
+      const { data, error } = await supabase.rpc("get_redirect_data", {
+        p_slug: slug!,
+      });
 
       if (error) throw error;
-      if (!data) throw new Error("Link não encontrado");
+      if (!data || data.length === 0) throw new Error("Link não encontrado");
 
-      setLink(data);
+      const linkData = data[0];
+      setLink(linkData);
 
       // Direct redirect
-      if (data.mode === "direct") {
-        handleDirectRedirect(data);
+      if (linkData.mode === "direct") {
+        handleDirectRedirect(linkData);
       }
 
-      // Menu mode - load menu items
-      if (data.mode === "menu") {
-        const { data: items } = await supabase
-          .from("menu_items" as any)
-          .select("*")
-          .eq("link_id", data.id)
-          .order("order_index");
-        setMenuItems((items as any[]) || []);
+      // Menu mode - load menu items via RPC
+      if (linkData.mode === "menu") {
+        const { data: items } = await supabase.rpc("get_menu_items", {
+          p_link_id: linkData.link_id,
+        });
+        setMenuItems(items || []);
       }
     } catch (error: any) {
       toast.error("Link não encontrado");
@@ -70,17 +74,18 @@ const RedirectPage = () => {
 
   // Track PageView when link loads
   useEffect(() => {
-    if (link?.id) {
+    if (link?.link_id) {
       trackEvent({
         eventName: "PageView",
         eventSourceUrl: window.location.href,
       });
     }
-  }, [link?.id]);
+  }, [link?.link_id]);
+
   const handleDirectRedirect = async (linkData: any) => {
     try {
       const { data: contactId } = await supabase.rpc("get_next_contact", {
-        p_link_id: linkData.id,
+        p_link_id: linkData.link_id,
       });
 
       if (!contactId) {
@@ -88,11 +93,11 @@ const RedirectPage = () => {
         return;
       }
 
-      const { data: contact } = await supabase
-        .from("redirect_contacts")
-        .select("phone")
-        .eq("id", contactId)
-        .single();
+      // Use scoped RPC for contacts
+      const { data: contacts } = await supabase.rpc("get_link_contacts", {
+        p_link_id: linkData.link_id,
+      });
+      const contact = contacts?.find((c: any) => c.contact_id === contactId);
 
       if (!contact) return;
 
@@ -107,7 +112,7 @@ const RedirectPage = () => {
 
       // Save lead
       await supabase.from("leads").insert({
-        link_id: linkData.id,
+        link_id: linkData.link_id,
         contact_id: contactId,
         redirected_to: contact.phone,
         utm_source: utmSource,
@@ -133,7 +138,7 @@ const RedirectPage = () => {
       });
 
       // Redirect
-      const message = encodeURIComponent(linkData.message_template);
+      const message = encodeURIComponent(linkData.message_template || "");
       window.location.href = `https://wa.me/${contact.phone}?text=${message}`;
     } catch (error: any) {
       toast.error("Erro ao redirecionar");
@@ -145,8 +150,27 @@ const RedirectPage = () => {
     setSubmitting(true);
 
     try {
+      // Validate inputs
+      const fieldsToValidate: Record<string, string> = {};
+      if (link.capture_name) fieldsToValidate.name = formData.name;
+      if (link.capture_phone) fieldsToValidate.phone = formData.phone;
+
+      if (link.capture_name || link.capture_phone) {
+        const schema = z.object({
+          ...(link.capture_name ? { name: leadSchema.shape.name } : {}),
+          ...(link.capture_phone ? { phone: leadSchema.shape.phone } : {}),
+        });
+        const result = schema.safeParse(fieldsToValidate);
+        if (!result.success) {
+          const firstError = result.error.errors[0]?.message || "Dados inválidos";
+          toast.error(firstError);
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const { data: contactId, error: rpcError } = await supabase.rpc("get_next_contact", {
-        p_link_id: link.id,
+        p_link_id: link.link_id,
       });
 
       if (rpcError) {
@@ -162,14 +186,13 @@ const RedirectPage = () => {
         return;
       }
 
-      const { data: contact, error: contactError } = await supabase
-        .from("redirect_contacts")
-        .select("phone")
-        .eq("id", contactId)
-        .single();
+      // Use scoped RPC for contacts
+      const { data: contacts } = await supabase.rpc("get_link_contacts", {
+        p_link_id: link.link_id,
+      });
+      const contact = contacts?.find((c: any) => c.contact_id === contactId);
 
-      if (contactError || !contact) {
-        console.error("Contact error:", contactError);
+      if (!contact) {
         toast.error("Erro ao buscar contato");
         setSubmitting(false);
         return;
@@ -184,12 +207,16 @@ const RedirectPage = () => {
       const fbc = getCookie("_fbc");
       const fbp = getCookie("_fbp");
 
+      // Sanitize inputs before saving
+      const sanitizedName = formData.name ? formData.name.trim().substring(0, 100) : null;
+      const sanitizedPhone = formData.phone ? formData.phone.replace(/[^\d\s\(\)\+\-]/g, "").substring(0, 20) : null;
+
       // Save lead (don't await - let it run in background)
       supabase.from("leads").insert({
-        link_id: link.id,
+        link_id: link.link_id,
         contact_id: contactId,
-        name: formData.name || null,
-        phone: formData.phone || null,
+        name: sanitizedName,
+        phone: sanitizedPhone,
         redirected_to: contact.phone,
         utm_source: utmSource,
         utm_campaign: utmCampaign,
@@ -206,10 +233,10 @@ const RedirectPage = () => {
         eventName: "Contact",
         eventSourceUrl: window.location.href,
         userData: {
-          email: formData.phone ? `${formData.phone.replace(/\D/g, "")}@leadflow.temp` : undefined,
-          phone: formData.phone,
-          firstName: formData.name?.split(" ")[0],
-          lastName: formData.name?.split(" ").slice(1).join(" "),
+          email: sanitizedPhone ? `${sanitizedPhone.replace(/\D/g, "")}@leadflow.temp` : undefined,
+          phone: sanitizedPhone || undefined,
+          firstName: sanitizedName?.split(" ")[0],
+          lastName: sanitizedName?.split(" ").slice(1).join(" "),
         },
         customData: {
           content_name: link.name,
@@ -219,13 +246,12 @@ const RedirectPage = () => {
 
       // Redirect immediately
       let message = link.message_template || "";
-      if (formData.name) {
-        message = message.replace(/{nome}/g, formData.name);
+      if (sanitizedName) {
+        message = message.replace(/{nome}/g, sanitizedName);
       }
       const encodedMessage = encodeURIComponent(message);
       const whatsappUrl = `https://wa.me/${contact.phone}?text=${encodedMessage}`;
       
-      console.log("Redirecting to:", whatsappUrl);
       window.location.href = whatsappUrl;
     } catch (error: any) {
       console.error("Submit error:", error);
@@ -244,7 +270,7 @@ const RedirectPage = () => {
 
   // Menu mode
   if (link?.mode === "menu") {
-    return <MenuPage link={link} menuItems={menuItems} />;
+    return <MenuPage link={{ ...link, id: link.link_id }} menuItems={menuItems} />;
   }
 
   if (!link || link.mode === "direct") {
@@ -299,6 +325,7 @@ const RedirectPage = () => {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
+                  maxLength={100}
                   className="h-12 text-base border-2 focus:border-primary transition-all"
                 />
               </div>
@@ -313,6 +340,7 @@ const RedirectPage = () => {
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   required
+                  maxLength={20}
                   className="h-12 text-base border-2 focus:border-primary transition-all"
                 />
               </div>

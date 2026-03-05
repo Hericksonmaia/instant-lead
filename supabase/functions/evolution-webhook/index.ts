@@ -37,53 +37,38 @@ interface EvolutionPayload {
 }
 
 function normalizePhone(phone: string): string {
-  // Remove @s.whatsapp.net and any non-numeric characters
   let normalized = phone.replace(/@s\.whatsapp\.net$/, '').replace(/\D/g, '');
-  
-  // If starts with 55 and has more than 11 digits, remove country code
   if (normalized.startsWith('55') && normalized.length > 11) {
     normalized = normalized.substring(2);
   }
-  
   return normalized;
 }
 
 function generatePhoneVariants(phone: string): string[] {
   const variants = new Set<string>();
-  
-  // Remove country code if present
   let base = phone;
   if (base.startsWith('55') && base.length > 11) {
     base = base.substring(2);
   }
-  
   variants.add(base);
-  
-  // 10 digits (DDD + 8): add 9th digit after DDD
   if (base.length === 10) {
     const withNinth = base.substring(0, 2) + '9' + base.substring(2);
     variants.add(withNinth);
     variants.add('55' + base);
     variants.add('55' + withNinth);
   }
-  
-  // 11 digits (DDD + 9 digits): remove 9th digit
   if (base.length === 11 && base[2] === '9') {
     const withoutNinth = base.substring(0, 2) + base.substring(3);
     variants.add(withoutNinth);
     variants.add('55' + base);
     variants.add('55' + withoutNinth);
   }
-  
-  // Also add with country code
   variants.add('55' + base);
-  
   return Array.from(variants);
 }
 
 function extractMessageContent(message: EvolutionPayload['data']['message']): string {
   if (!message) return '[Mensagem vazia]';
-  
   if (message.conversation) return message.conversation;
   if (message.extendedTextMessage?.text) return message.extendedTextMessage.text;
   if (message.imageMessage) return message.imageMessage.caption || '[Imagem]';
@@ -97,7 +82,6 @@ function extractMessageContent(message: EvolutionPayload['data']['message']): st
   if (message.reactionMessage) return `[Reação: ${message.reactionMessage.text || ''}]`;
   if (message.buttonsResponseMessage) return `[Botão: ${message.buttonsResponseMessage.selectedButtonId || ''}]`;
   if (message.listResponseMessage) return `[Lista: ${message.listResponseMessage.title || ''}]`;
-  
   return '[Mensagem não suportada]';
 }
 
@@ -153,18 +137,16 @@ serve(async (req) => {
       });
     }
 
-    // Ignore group messages (only process private/individual chats)
+    // Ignore group messages
     if (payload.data.key.remoteJid.endsWith('@g.us')) {
-      console.log("Ignoring group message from:", payload.data.key.remoteJid);
       return new Response(JSON.stringify({ message: "Group message ignored" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Ignore messages sent by the business (fromMe = true)
+    // Ignore messages sent by the business
     if (payload.data.key.fromMe) {
-      console.log("Ignoring outgoing message");
       return new Response(JSON.stringify({ message: "Outgoing message ignored" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -176,14 +158,37 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Validate workspace_id exists and verify instance matches
+    const { data: wsData, error: wsError } = await supabase
+      .from('workspaces')
+      .select('id, evolution_instance_name, evolution_api_key, facebook_access_token, facebook_pixel_id')
+      .eq('id', workspaceId)
+      .single();
+
+    if (wsError || !wsData) {
+      console.error("Invalid workspace_id:", workspaceId);
+      return new Response(JSON.stringify({ error: "Invalid workspace" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Verify the instance name matches what's configured for this workspace
+    if (wsData.evolution_instance_name && wsData.evolution_instance_name !== payload.instance) {
+      console.error("Instance mismatch:", { expected: wsData.evolution_instance_name, received: payload.instance });
+      return new Response(JSON.stringify({ error: "Instance mismatch" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const workspaceData = wsData;
+
     // Extract and normalize phone number
     const rawPhone = payload.data.key.remoteJid;
     const normalizedPhone = normalizePhone(rawPhone);
-    
-    // Extract message content
     const messageContent = extractMessageContent(payload.data.message);
     
-    // Convert timestamp
     const timestamp = typeof payload.data.messageTimestamp === 'string' 
       ? new Date(parseInt(payload.data.messageTimestamp) * 1000)
       : new Date(payload.data.messageTimestamp * 1000);
@@ -194,22 +199,9 @@ serve(async (req) => {
       timestamp: timestamp.toISOString(),
     });
 
-    // Find lead by phone number (try multiple formats including 9th digit variants)
+    // Find lead by phone number
     const phonesToCheck = generatePhoneVariants(normalizedPhone);
-    
-    console.log("Phone variants to check:", phonesToCheck);
-
     let leadId: string | null = null;
-    let workspaceData: any = null;
-
-    // First, get workspace data for Meta CAPI
-    const { data: wsData } = await supabase
-      .from('workspaces')
-      .select('facebook_access_token, facebook_pixel_id')
-      .eq('id', workspaceId)
-      .single();
-    
-    workspaceData = wsData;
 
     // Get all link IDs for this workspace
     const { data: workspaceLinks } = await supabase
@@ -231,9 +223,6 @@ serve(async (req) => {
 
         if (!error && leads && leads.length > 0) {
           leadId = leads[0].id;
-          console.log("Found lead:", leadId, "using phone variant:", phone);
-          
-          // Update name from pushName if lead has no name yet
           if (payload.data.pushName) {
             await supabase
               .from('leads')
@@ -246,11 +235,8 @@ serve(async (req) => {
       }
     }
 
-    // If no lead found by phone, try to find a recent lead with NULL phone 
-    // from the same workspace (direct redirect mode)
+    // If no lead found by phone, try phoneless lead or create organic
     if (!leadId && linkIds.length > 0) {
-      console.log("No lead found by phone, trying to find recent phoneless lead for workspace:", workspaceId);
-      
       const { data: recentLeads } = await supabase
         .from('leads')
         .select('id')
@@ -261,50 +247,27 @@ serve(async (req) => {
       
       if (recentLeads && recentLeads.length > 0) {
         leadId = recentLeads[0].id;
-        
-        // Update lead with the phone number and name (pushName from WhatsApp)
         const updateData: Record<string, any> = { phone: normalizedPhone };
-        if (payload.data.pushName) {
-          updateData.name = payload.data.pushName;
-        }
-        await supabase
-          .from('leads')
-          .update(updateData)
-          .eq('id', leadId);
-        
-        console.log("Found phoneless lead:", leadId, "- updated phone to:", normalizedPhone);
+        if (payload.data.pushName) updateData.name = payload.data.pushName;
+        await supabase.from('leads').update(updateData).eq('id', leadId);
       }
       
-      if (!leadId) {
-        // Create organic lead (message from unknown contact)
-        if (linkIds.length > 0) {
-          console.log("Creating organic lead for phone:", normalizedPhone, "in workspace:", workspaceId);
-          
-          const { data: newLead, error: createError } = await supabase
-            .from('leads')
-            .insert({
-              link_id: linkIds[0], // Associate with first link of workspace
-              phone: normalizedPhone,
-              name: payload.data.pushName || null,
-            })
-            .select('id')
-            .single();
-          
-          if (!createError && newLead) {
-            leadId = newLead.id;
-            console.log("Created organic lead:", leadId);
-          } else {
-            console.error("Error creating organic lead:", createError);
-          }
-        }
+      if (!leadId && linkIds.length > 0) {
+        const { data: newLead, error: createError } = await supabase
+          .from('leads')
+          .insert({
+            link_id: linkIds[0],
+            phone: normalizedPhone,
+            name: payload.data.pushName || null,
+          })
+          .select('id')
+          .single();
         
-        if (!leadId) {
-          console.log("No lead found for phone:", normalizedPhone);
-        }
+        if (!createError && newLead) leadId = newLead.id;
       }
     }
 
-    // Check if this is the first message for this lead
+    // Check if first message
     let isFirstMessage = false;
     if (leadId) {
       const { data: existingFirst } = await supabase
@@ -313,7 +276,6 @@ serve(async (req) => {
         .eq('lead_id', leadId)
         .eq('message_type', 'first_message')
         .limit(1);
-      
       isFirstMessage = !existingFirst || existingFirst.length === 0;
     }
 
@@ -326,48 +288,18 @@ serve(async (req) => {
       raw_payload: payload,
     };
 
-    // If first message, create first_message record
     if (isFirstMessage && leadId) {
-      const { error: firstError } = await supabase
-        .from('whatsapp_messages')
-        .insert({ ...baseMessage, message_type: 'first_message' });
-      
-      if (firstError) {
-        console.error("Error inserting first_message:", firstError);
-      } else {
-        console.log("Created first_message record");
-      }
+      await supabase.from('whatsapp_messages').insert({ ...baseMessage, message_type: 'first_message' });
     }
 
-    // Delete existing last_message and create new one
     if (leadId) {
-      await supabase
-        .from('whatsapp_messages')
-        .delete()
-        .eq('lead_id', leadId)
-        .eq('message_type', 'last_message');
-
-      const { error: lastError } = await supabase
-        .from('whatsapp_messages')
-        .insert({ ...baseMessage, message_type: 'last_message' });
-      
-      if (lastError) {
-        console.error("Error inserting last_message:", lastError);
-      } else {
-        console.log("Created last_message record");
-      }
+      await supabase.from('whatsapp_messages').delete().eq('lead_id', leadId).eq('message_type', 'last_message');
+      await supabase.from('whatsapp_messages').insert({ ...baseMessage, message_type: 'last_message' });
     }
 
-    // Always create 'other' record for history
-    const { error: otherError } = await supabase
-      .from('whatsapp_messages')
-      .insert({ ...baseMessage, message_type: 'other' });
-    
-    if (otherError) {
-      console.error("Error inserting other message:", otherError);
-    }
+    await supabase.from('whatsapp_messages').insert({ ...baseMessage, message_type: 'other' });
 
-    // Send event to Meta Conversions API if configured
+    // Send event to Meta CAPI if configured
     if (leadId && workspaceData?.facebook_access_token && workspaceData?.facebook_pixel_id) {
       try {
         const eventName = isFirstMessage ? 'Lead' : 'LeadEngagement';
@@ -378,10 +310,7 @@ serve(async (req) => {
           event_time: eventTime,
           event_id: `whatsapp_${payload.data.key.id}`,
           action_source: "website",
-          user_data: {
-            ph: normalizedPhone,
-            external_id: leadId,
-          },
+          user_data: { ph: normalizedPhone, external_id: leadId },
           custom_data: {
             message_content: messageContent.substring(0, 100),
             message_type: isFirstMessage ? 'first_message' : 'subsequent',
@@ -389,7 +318,7 @@ serve(async (req) => {
           },
         };
 
-        const metaResponse = await fetch(
+        await fetch(
           `https://graph.facebook.com/v18.0/${workspaceData.facebook_pixel_id}/events`,
           {
             method: "POST",
@@ -400,39 +329,20 @@ serve(async (req) => {
             }),
           }
         );
-
-        const metaResult = await metaResponse.json();
-        console.log("Meta CAPI response:", metaResult);
       } catch (metaError) {
         console.error("Error sending to Meta CAPI:", metaError);
-        // Continue processing even if Meta API fails
       }
     }
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        leadId,
-        isFirstMessage,
-        messageType: isFirstMessage ? 'first_message' : 'subsequent',
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ success: true, leadId, isFirstMessage }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Error in evolution-webhook:", error);
-    
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

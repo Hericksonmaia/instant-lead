@@ -83,6 +83,9 @@ export function SaleDialog({
     setSubmitting(true);
 
     try {
+      // Get session token for authenticated request
+      const { data: { session } } = await (await import("@/integrations/supabase/client")).supabase.auth.getSession();
+      
       // Call edge function to register sale and send to Meta CAPI
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-purchase`,
@@ -91,6 +94,7 @@ export function SaleDialog({
           headers: {
             "Content-Type": "application/json",
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${session?.access_token}`,
           },
           body: JSON.stringify({
             leadId,

@@ -24,8 +24,10 @@ interface ConversionEvent {
   timestamp: number;
 }
 
+// Allowed event names to prevent abuse
+const ALLOWED_EVENTS = new Set(["PageView", "Contact", "Lead", "ViewContent"]);
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -33,15 +35,25 @@ serve(async (req) => {
   try {
     const payload: ConversionEvent = await req.json();
     
-    console.log("Received conversion event:", {
-      linkId: payload.linkId,
-      eventName: payload.eventName,
-      eventId: payload.eventId,
-    });
-
     // Validate required fields
     if (!payload.linkId || !payload.eventName || !payload.eventId) {
       throw new Error("Missing required fields: linkId, eventName, or eventId");
+    }
+
+    // Validate event name against allowlist
+    if (!ALLOWED_EVENTS.has(payload.eventName)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid event name" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate eventId format (prevent injection)
+    if (typeof payload.eventId !== 'string' || payload.eventId.length > 200) {
+      return new Response(
+        JSON.stringify({ error: "Invalid eventId" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Initialize Supabase client
@@ -94,14 +106,11 @@ serve(async (req) => {
 
     console.log("Sending to Facebook CAPI:", { pixelId, eventName: payload.eventName });
 
-    // Send to Facebook Conversions API
     const response = await fetch(
       `https://graph.facebook.com/v18.0/${pixelId}/events`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           data: [event],
           access_token: accessToken,
@@ -116,33 +125,15 @@ serve(async (req) => {
       throw new Error(`Facebook API error: ${JSON.stringify(result)}`);
     }
 
-    console.log("Successfully sent to Facebook CAPI:", result);
-
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        eventId: payload.eventId,
-        facebookResponse: result 
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      }
+      JSON.stringify({ success: true, eventId: payload.eventId }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
   } catch (error) {
     console.error("Error in meta-conversions-api:", error);
-    
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: errorMessage,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      }
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Unknown error" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
 });
@@ -150,13 +141,10 @@ serve(async (req) => {
 function getCookie(req: Request, name: string): string | undefined {
   const cookies = req.headers.get("cookie");
   if (!cookies) return undefined;
-
   const cookieArr = cookies.split(";");
   for (const cookie of cookieArr) {
     const [cookieName, cookieValue] = cookie.trim().split("=");
-    if (cookieName === name) {
-      return cookieValue;
-    }
+    if (cookieName === name) return cookieValue;
   }
   return undefined;
 }
