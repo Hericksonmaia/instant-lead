@@ -215,7 +215,7 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
         .from("redirect_links") as any)
         .update({
           name: settings.name,
-          mode: settings.mode,
+          slug: settings.slug,
           capture_name: settings.captureName,
           capture_phone: settings.capturePhone,
           headline: settings.headline || null,
