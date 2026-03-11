@@ -208,8 +208,29 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
   };
 
   const saveSettings = async () => {
+    if (!settings.slug || settings.slug.trim() === "") {
+      toast.error("O slug não pode estar vazio");
+      return;
+    }
+
     setLoading(true);
     try {
+      // Check if slug is unique (only if changed)
+      if (settings.slug !== link.slug) {
+        const { data: existing } = await supabase
+          .from("redirect_links")
+          .select("id")
+          .eq("slug", settings.slug)
+          .neq("id", link.id)
+          .maybeSingle();
+
+        if (existing) {
+          toast.error("Este slug já está em uso por outro link. Escolha um slug diferente.");
+          setLoading(false);
+          return;
+        }
+      }
+
       // Save link settings including theme and description
       const { error: linkError } = await supabase
         .from("redirect_links")
