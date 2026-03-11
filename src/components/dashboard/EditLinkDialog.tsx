@@ -248,7 +248,8 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
       toast.success("Configurações salvas!");
       onSuccess();
     } catch (error: any) {
-      toast.error("Erro ao salvar configurações");
+      console.error("Save settings error:", error);
+      toast.error("Erro ao salvar configurações: " + (error?.message || "erro desconhecido"));
     } finally {
       setLoading(false);
     }
