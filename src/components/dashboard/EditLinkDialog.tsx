@@ -211,8 +211,8 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
     setLoading(true);
     try {
       // Save link settings including theme and description
-      const { error: linkError } = await (supabase
-        .from("redirect_links") as any)
+      const { error: linkError } = await supabase
+        .from("redirect_links")
         .update({
           name: settings.name,
           slug: settings.slug,
