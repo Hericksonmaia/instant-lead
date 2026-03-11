@@ -216,6 +216,7 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
         .update({
           name: settings.name,
           slug: settings.slug,
+          mode: settings.mode,
           capture_name: settings.captureName,
           capture_phone: settings.capturePhone,
           headline: settings.headline || null,
