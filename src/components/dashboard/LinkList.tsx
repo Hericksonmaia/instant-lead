@@ -290,7 +290,6 @@ export const LinkList = () => {
               >
                 <CopyPlus className="w-4 h-4" />
               </Button>
-              </Button>
               <Button
                 variant="ghost"
                 size="icon"
