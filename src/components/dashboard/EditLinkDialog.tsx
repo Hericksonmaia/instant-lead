@@ -600,13 +600,12 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
                   <span className="text-sm text-muted-foreground">/r/</span>
                   <Input
                     id="edit-slug"
-                    value={link.slug}
-                    disabled
-                    className="opacity-50"
+                    value={settings.slug}
+                    onChange={(e) => setSettings({ ...settings, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })}
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  O slug não pode ser alterado após a criação
+                  Atenção: alterar o slug invalida links já compartilhados
                 </p>
               </div>
 
