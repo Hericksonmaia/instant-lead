@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Edit, Trash2, Copy, Users, BarChart3 } from "lucide-react";
+import { ExternalLink, Edit, Trash2, Copy, Users, BarChart3, CopyPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { EditLinkDialog } from "./EditLinkDialog";
