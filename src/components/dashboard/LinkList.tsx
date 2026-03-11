@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Edit, Trash2, Copy, Users, BarChart3 } from "lucide-react";
+import { ExternalLink, Edit, Trash2, Copy, Users, BarChart3, CopyPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { EditLinkDialog } from "./EditLinkDialog";
@@ -93,6 +93,88 @@ export const LinkList = () => {
     const url = `${window.location.origin}/r/${slug}`;
     navigator.clipboard.writeText(url);
     toast.success("Link copiado!");
+  };
+
+  const duplicateLink = async (link: RedirectLink) => {
+    if (!currentWorkspace) return;
+    try {
+      // Fetch full link data
+      const { data: original, error: fetchError } = await supabase
+        .from("redirect_links")
+        .select("*")
+        .eq("id", link.id)
+        .single();
+
+      if (fetchError || !original) throw fetchError;
+
+      const newSlug = `${original.slug}-copy-${Date.now().toString(36)}`;
+
+      const { data: newLink, error: insertError } = await supabase
+        .from("redirect_links")
+        .insert({
+          workspace_id: currentWorkspace.id,
+          slug: newSlug,
+          name: `${original.name} (cópia)`,
+          mode: original.mode,
+          capture_name: original.capture_name,
+          capture_phone: original.capture_phone,
+          message_template: original.message_template,
+          headline: original.headline,
+          subtitle: original.subtitle,
+          button_text: original.button_text,
+          description: original.description,
+          theme_bg_color: original.theme_bg_color,
+          theme_text_color: original.theme_text_color,
+          theme_button_bg: original.theme_button_bg,
+          theme_button_text: original.theme_button_text,
+          theme_font: original.theme_font,
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // Duplicate contacts
+      const { data: contacts } = await supabase
+        .from("redirect_contacts")
+        .select("phone, order_index")
+        .eq("link_id", link.id);
+
+      if (contacts && contacts.length > 0) {
+        await supabase.from("redirect_contacts").insert(
+          contacts.map((c) => ({
+            link_id: newLink.id,
+            phone: c.phone,
+            order_index: c.order_index,
+          }))
+        );
+      }
+
+      // Duplicate menu items
+      if (original.mode === "menu") {
+        const { data: items } = await supabase
+          .from("menu_items")
+          .select("label, url, icon, order_index")
+          .eq("link_id", link.id);
+
+        if (items && items.length > 0) {
+          await supabase.from("menu_items").insert(
+            items.map((item) => ({
+              link_id: newLink.id,
+              label: item.label,
+              url: item.url,
+              icon: item.icon,
+              order_index: item.order_index,
+            }))
+          );
+        }
+      }
+
+      toast.success("Link duplicado com sucesso!");
+      fetchLinks();
+    } catch (error: any) {
+      toast.error("Erro ao duplicar link");
+    }
   };
 
   const deleteLink = async (id: string) => {
@@ -199,6 +281,14 @@ export const LinkList = () => {
                 title="Editar link"
               >
                 <Edit className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => duplicateLink(link)}
+                title="Duplicar link"
+              >
+                <CopyPlus className="w-4 h-4" />
               </Button>
               <Button
                 variant="ghost"
