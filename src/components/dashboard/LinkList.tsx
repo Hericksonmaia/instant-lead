@@ -285,6 +285,15 @@ export const LinkList = () => {
               <Button
                 variant="ghost"
                 size="icon"
+                onClick={() => duplicateLink(link)}
+                title="Duplicar link"
+              >
+                <CopyPlus className="w-4 h-4" />
+              </Button>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => deleteLink(link.id)}
                 title="Excluir link"
               >
