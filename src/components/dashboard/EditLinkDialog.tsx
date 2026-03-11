@@ -41,6 +41,7 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
   const [newPhone, setNewPhone] = useState("");
   const [settings, setSettings] = useState({
     name: link.name || "",
+    slug: link.slug || "",
     mode: link.mode || "form",
     captureName: link.capture_name || false,
     capturePhone: link.capture_phone || false,
