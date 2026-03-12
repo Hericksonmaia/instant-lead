@@ -592,6 +592,7 @@ export type Database = {
           capture_name: boolean
           capture_phone: boolean
           description: string
+          facebook_pixel_id: string
           headline: string
           link_id: string
           message_template: string
