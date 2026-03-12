@@ -33,7 +33,7 @@ const RedirectPage = () => {
   const [menuItems, setMenuItems] = useState<any[]>([]);
 
   const { trackEvent } = useMetaPixel(
-    link ? { pixelId: "placeholder", linkId: link.link_id || link.id } : null
+    link ? { pixelId: link.facebook_pixel_id || "", linkId: link.link_id || link.id } : null
   );
 
   useEffect(() => {

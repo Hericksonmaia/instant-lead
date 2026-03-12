@@ -672,7 +672,7 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
               <div className="border-t pt-4 space-y-4">
                 <h3 className="font-semibold text-sm">Facebook Pixel & API</h3>
                 <p className="text-xs text-muted-foreground">
-                  Configurações aplicadas a todos os links deste workspace
+                  Configurações específicas deste link (sobrescrevem as do workspace)
                 </p>
                 
                 <div className="space-y-2">
@@ -680,8 +680,8 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
                   <Input
                     id="edit-pixelId"
                     placeholder="1234567890"
-                    value={workspaceSettings.pixelId}
-                    onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, pixelId: e.target.value })}
+                    value={pixelSettings.pixelId}
+                    onChange={(e) => setPixelSettings({ ...pixelSettings, pixelId: e.target.value })}
                   />
                 </div>
 
@@ -691,8 +691,8 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
                     id="edit-facebookToken"
                     type="password"
                     placeholder="Token de acesso da Conversions API"
-                    value={workspaceSettings.facebookToken}
-                    onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, facebookToken: e.target.value })}
+                    value={pixelSettings.facebookToken}
+                    onChange={(e) => setPixelSettings({ ...pixelSettings, facebookToken: e.target.value })}
                   />
                   <p className="text-xs text-muted-foreground">
                     🔒 Token armazenado com segurança no servidor (nunca exposto ao navegador)

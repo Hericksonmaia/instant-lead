@@ -65,6 +65,8 @@ serve(async (req) => {
         redirect_links (
           name,
           workspace_id,
+          facebook_pixel_id,
+          facebook_access_token,
           workspaces (
             owner_id,
             facebook_access_token,

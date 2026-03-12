@@ -158,10 +158,10 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Validate workspace_id exists and verify instance matches
+    // Validate workspace exists
     const { data: wsData, error: wsError } = await supabase
       .from('workspaces')
-      .select('id, evolution_instance_name, evolution_api_key, facebook_access_token, facebook_pixel_id')
+      .select('id, facebook_access_token, facebook_pixel_id')
       .eq('id', workspaceId)
       .single();
 
@@ -173,13 +173,29 @@ serve(async (req) => {
       });
     }
 
-    // Verify the instance name matches what's configured for this workspace
-    if (wsData.evolution_instance_name && wsData.evolution_instance_name !== payload.instance) {
-      console.error("Instance mismatch:", { expected: wsData.evolution_instance_name, received: payload.instance });
-      return new Response(JSON.stringify({ error: "Instance mismatch" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Verify the instance belongs to this workspace via evolution_instances table
+    const { data: instanceData } = await supabase
+      .from('evolution_instances')
+      .select('id, instance_name')
+      .eq('workspace_id', workspaceId)
+      .eq('instance_name', payload.instance)
+      .limit(1);
+
+    if (!instanceData || instanceData.length === 0) {
+      // Fallback: check legacy workspace columns
+      const { data: legacyWs } = await supabase
+        .from('workspaces')
+        .select('evolution_instance_name')
+        .eq('id', workspaceId)
+        .single();
+
+      if (legacyWs?.evolution_instance_name && legacyWs.evolution_instance_name !== payload.instance) {
+        console.error("Instance mismatch:", { expected: legacyWs.evolution_instance_name, received: payload.instance });
+        return new Response(JSON.stringify({ error: "Instance mismatch" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const workspaceData = wsData;
