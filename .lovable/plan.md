@@ -1,47 +1,69 @@
 
 
-# Plano: Corrigir vinculacao de mensagens WhatsApp com leads
+## Plan: Pixel/Token por Link + Múltiplas Instâncias WhatsApp
 
-## Problema Identificado
+### Problema Atual
+- **Pixel/Token**: Armazenados no workspace (`facebook_pixel_id`, `facebook_access_token`), compartilhados por todos os links. Cada link deveria poder ter seu próprio Pixel e Token.
+- **WhatsApp**: Apenas uma instância Evolution API por workspace (`evolution_api_url`, `evolution_api_key`, `evolution_instance_name`). Usuário quer configurar múltiplas instâncias.
 
-O lead tem telefone `5585998372658` mas o WhatsApp envia `558598372658` (sem o nono digito). Apos normalizacao, o webhook busca `8598372658` mas o lead tem `85998372658`. O `ilike` nao encontra correspondencia porque os numeros sao diferentes.
+---
 
-Isso e um problema conhecido com numeros brasileiros -- o WhatsApp as vezes armazena numeros de celular sem o nono digito (9).
+### 1. Pixel e Token por Link
 
-## Solucao
+**Migração SQL**: Adicionar colunas `facebook_pixel_id` e `facebook_access_token` na tabela `redirect_links`.
 
-Melhorar a logica de busca de leads no webhook para considerar variantes de numeros brasileiros (com e sem o nono digito).
-
-### Mudancas Tecnicas
-
-**1. Atualizar `supabase/functions/evolution-webhook/index.ts`**
-
-Adicionar funcao que gera variantes do numero brasileiro:
-- Numero original normalizado: `8598372658`
-- Com nono digito inserido: `85998372658` (adicionar `9` apos o DDD de 2 digitos)
-- Com prefixo 55: `558598372658`, `5585998372658`
-
-Atualizar a busca de leads para testar todas essas variantes.
-
-```text
-Variantes geradas para 8598372658:
-  - 8598372658
-  - 85998372658    (com 9o digito)
-  - 558598372658
-  - 5585998372658  (com 9o digito + 55)
+```sql
+ALTER TABLE redirect_links
+  ADD COLUMN facebook_pixel_id text,
+  ADD COLUMN facebook_access_token text;
 ```
 
-**2. Logica da funcao `generatePhoneVariants`**
+**Lógica de fallback**: Se o link tiver pixel/token próprio, usa ele. Senão, usa o do workspace (mantém retrocompatibilidade).
 
-Para numeros com 10 digitos (DDD + 8 digitos, sem o 9):
-- Inserir `9` na posicao 2 (apos o DDD) para gerar a variante de 11 digitos
+**Arquivos afetados**:
+- `EditLinkDialog.tsx` — Os campos de Pixel ID e Token passam a ler/salvar em `redirect_links` ao invés de `workspaces`. Remover a lógica de `workspaceSettings`.
+- `RedirectPage.tsx` — Passar o pixelId do link para o hook `useMetaPixel` (precisa buscar via RPC ou query).
+- `supabase/functions/meta-conversions-api/index.ts` — Alterar para primeiro checar `redirect_links.facebook_pixel_id` / `facebook_access_token`, e só usar o do workspace como fallback.
+- `supabase/functions/meta-purchase/index.ts` — Mesma lógica de fallback.
+- `get_redirect_data` (RPC) — Incluir `facebook_pixel_id` no retorno para o frontend poder carregar o pixel correto.
 
-Para numeros com 11 digitos (DDD + 9 digitos, com o 9):
-- Remover o digito na posicao 2 para gerar a variante de 10 digitos
+---
 
-Sempre testar tambem com e sem o prefixo `55`.
+### 2. Múltiplas Instâncias WhatsApp (Evolution API)
 
-**3. Nenhuma mudanca no banco de dados**
+**Nova tabela**: `evolution_instances` para armazenar múltiplas instâncias por workspace.
 
-A correcao e apenas na logica da edge function. Nao requer migracao.
+```sql
+CREATE TABLE evolution_instances (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  instance_name text NOT NULL,
+  api_url text NOT NULL,
+  api_key text NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE evolution_instances ENABLE ROW LEVEL SECURITY;
+-- RLS: owner do workspace pode CRUD
+```
+
+**Arquivos afetados**:
+- `EvolutionAPISettings.tsx` — Refatorar para listar/criar/editar/excluir múltiplas instâncias (CRUD em cards ou lista).
+- `supabase/functions/evolution-webhook/index.ts` — Adaptar para buscar instância na nova tabela em vez de buscar campos no workspace.
+- `Settings.tsx` — Sem mudança estrutural, o componente `EvolutionAPISettings` já é renderizado na tab WhatsApp.
+- Remover as colunas legadas do workspace (`evolution_api_url`, `evolution_api_key`, `evolution_instance_name`) após migração dos dados, ou mantê-las como fallback temporário.
+
+---
+
+### Resumo de Mudanças
+
+| Área | O que muda |
+|------|-----------|
+| **DB Migration** | 2 colunas em `redirect_links` + nova tabela `evolution_instances` + RLS |
+| **RPC** | `get_redirect_data` retorna `facebook_pixel_id` |
+| **Edge Functions** | `meta-conversions-api` e `meta-purchase` usam pixel/token do link com fallback ao workspace |
+| **EditLinkDialog** | Campos pixel/token salvam no link, não no workspace |
+| **RedirectPage** | Usa pixelId do link |
+| **EvolutionAPISettings** | CRUD de múltiplas instâncias |
+| **evolution-webhook** | Busca instância na nova tabela |
 
