@@ -82,6 +82,7 @@ serve(async (req) => {
 
     // Verify the authenticated user owns this workspace
     const workspace = (lead.redirect_links as any)?.workspaces;
+    const linkData = lead.redirect_links as any;
     if (workspace?.owner_id !== userId) {
       return new Response(JSON.stringify({ error: 'Forbidden: you do not own this workspace' }), {
         status: 403,
@@ -89,8 +90,9 @@ serve(async (req) => {
       });
     }
 
-    const accessToken = workspace?.facebook_access_token;
-    const pixelId = workspace?.facebook_pixel_id;
+    // Link-level credentials take priority, fallback to workspace
+    const accessToken = linkData?.facebook_access_token || workspace?.facebook_access_token;
+    const pixelId = linkData?.facebook_pixel_id || workspace?.facebook_pixel_id;
 
     if (!accessToken || !pixelId) {
       throw new Error("Facebook Pixel not configured for this workspace");
