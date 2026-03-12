@@ -59,9 +59,9 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
     font: (link as any).theme_font || "Inter",
   });
   
-  const [workspaceSettings, setWorkspaceSettings] = useState({
-    pixelId: "",
-    facebookToken: "",
+  const [pixelSettings, setPixelSettings] = useState({
+    pixelId: (link as any).facebook_pixel_id || "",
+    facebookToken: (link as any).facebook_access_token || "",
   });
 
   useEffect(() => {
