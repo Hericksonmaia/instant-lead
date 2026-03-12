@@ -87,6 +87,10 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
         buttonText: (link as any).theme_button_text || "#ffffff",
         font: (link as any).theme_font || "Inter",
       });
+      setPixelSettings({
+        pixelId: (link as any).facebook_pixel_id || "",
+        facebookToken: (link as any).facebook_access_token || "",
+      });
     }
   }, [open, link]);
 
