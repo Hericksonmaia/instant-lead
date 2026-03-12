@@ -67,7 +67,6 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
   useEffect(() => {
     if (open) {
       fetchContacts();
-      fetchWorkspaceSettings();
       fetchMenuItems();
       setSettings({
         name: link.name || "",
