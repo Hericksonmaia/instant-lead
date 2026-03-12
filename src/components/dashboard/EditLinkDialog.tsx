@@ -239,21 +239,12 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
           theme_button_bg: theme.buttonBg,
           theme_button_text: theme.buttonText,
           theme_font: theme.font,
-        })
+          facebook_pixel_id: pixelSettings.pixelId || null,
+          facebook_access_token: pixelSettings.facebookToken || null,
+        } as any)
         .eq("id", link.id);
 
       if (linkError) throw linkError;
-
-      // Save workspace Facebook settings
-      const { error: workspaceError } = await supabase
-        .from("workspaces")
-        .update({
-          facebook_pixel_id: workspaceSettings.pixelId || null,
-          facebook_access_token: workspaceSettings.facebookToken || null,
-        })
-        .eq("id", link.workspace_id);
-
-      if (workspaceError) throw workspaceError;
 
       toast.success("Configurações salvas!");
       onSuccess();
