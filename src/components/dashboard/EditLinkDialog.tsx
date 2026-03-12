@@ -94,20 +94,6 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
     }
   }, [open, link]);
 
-  const fetchWorkspaceSettings = async () => {
-    const { data } = await supabase
-      .from("workspaces")
-      .select("facebook_pixel_id, facebook_access_token")
-      .eq("id", link.workspace_id)
-      .single();
-
-    if (data) {
-      setWorkspaceSettings({
-        pixelId: data.facebook_pixel_id || "",
-        facebookToken: data.facebook_access_token || "",
-      });
-    }
-  };
 
   const fetchContacts = async () => {
     const { data } = await supabase
