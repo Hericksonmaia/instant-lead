@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      evolution_instances: {
+        Row: {
+          api_key: string
+          api_url: string
+          created_at: string | null
+          id: string
+          instance_name: string
+          workspace_id: string
+        }
+        Insert: {
+          api_key: string
+          api_url: string
+          created_at?: string | null
+          id?: string
+          instance_name: string
+          workspace_id: string
+        }
+        Update: {
+          api_key?: string
+          api_url?: string
+          created_at?: string | null
+          id?: string
+          instance_name?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evolution_instances_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_tags: {
         Row: {
           created_at: string | null
@@ -298,6 +333,8 @@ export type Database = {
           capture_phone: boolean | null
           created_at: string | null
           description: string | null
+          facebook_access_token: string | null
+          facebook_pixel_id: string | null
           headline: string | null
           id: string
           message_template: string | null
@@ -318,6 +355,8 @@ export type Database = {
           capture_phone?: boolean | null
           created_at?: string | null
           description?: string | null
+          facebook_access_token?: string | null
+          facebook_pixel_id?: string | null
           headline?: string | null
           id?: string
           message_template?: string | null
@@ -338,6 +377,8 @@ export type Database = {
           capture_phone?: boolean | null
           created_at?: string | null
           description?: string | null
+          facebook_access_token?: string | null
+          facebook_pixel_id?: string | null
           headline?: string | null
           id?: string
           message_template?: string | null
@@ -551,6 +592,7 @@ export type Database = {
           capture_name: boolean
           capture_phone: boolean
           description: string
+          facebook_pixel_id: string
           headline: string
           link_id: string
           message_template: string

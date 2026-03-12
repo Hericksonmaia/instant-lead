@@ -59,15 +59,14 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
     font: (link as any).theme_font || "Inter",
   });
   
-  const [workspaceSettings, setWorkspaceSettings] = useState({
-    pixelId: "",
-    facebookToken: "",
+  const [pixelSettings, setPixelSettings] = useState({
+    pixelId: (link as any).facebook_pixel_id || "",
+    facebookToken: (link as any).facebook_access_token || "",
   });
 
   useEffect(() => {
     if (open) {
       fetchContacts();
-      fetchWorkspaceSettings();
       fetchMenuItems();
       setSettings({
         name: link.name || "",
@@ -88,23 +87,13 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
         buttonText: (link as any).theme_button_text || "#ffffff",
         font: (link as any).theme_font || "Inter",
       });
+      setPixelSettings({
+        pixelId: (link as any).facebook_pixel_id || "",
+        facebookToken: (link as any).facebook_access_token || "",
+      });
     }
   }, [open, link]);
 
-  const fetchWorkspaceSettings = async () => {
-    const { data } = await supabase
-      .from("workspaces")
-      .select("facebook_pixel_id, facebook_access_token")
-      .eq("id", link.workspace_id)
-      .single();
-
-    if (data) {
-      setWorkspaceSettings({
-        pixelId: data.facebook_pixel_id || "",
-        facebookToken: data.facebook_access_token || "",
-      });
-    }
-  };
 
   const fetchContacts = async () => {
     const { data } = await supabase
@@ -250,21 +239,12 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
           theme_button_bg: theme.buttonBg,
           theme_button_text: theme.buttonText,
           theme_font: theme.font,
-        })
+          facebook_pixel_id: pixelSettings.pixelId || null,
+          facebook_access_token: pixelSettings.facebookToken || null,
+        } as any)
         .eq("id", link.id);
 
       if (linkError) throw linkError;
-
-      // Save workspace Facebook settings
-      const { error: workspaceError } = await supabase
-        .from("workspaces")
-        .update({
-          facebook_pixel_id: workspaceSettings.pixelId || null,
-          facebook_access_token: workspaceSettings.facebookToken || null,
-        })
-        .eq("id", link.workspace_id);
-
-      if (workspaceError) throw workspaceError;
 
       toast.success("Configurações salvas!");
       onSuccess();
@@ -692,7 +672,7 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
               <div className="border-t pt-4 space-y-4">
                 <h3 className="font-semibold text-sm">Facebook Pixel & API</h3>
                 <p className="text-xs text-muted-foreground">
-                  Configurações aplicadas a todos os links deste workspace
+                  Configurações específicas deste link (sobrescrevem as do workspace)
                 </p>
                 
                 <div className="space-y-2">
@@ -700,8 +680,8 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
                   <Input
                     id="edit-pixelId"
                     placeholder="1234567890"
-                    value={workspaceSettings.pixelId}
-                    onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, pixelId: e.target.value })}
+                    value={pixelSettings.pixelId}
+                    onChange={(e) => setPixelSettings({ ...pixelSettings, pixelId: e.target.value })}
                   />
                 </div>
 
@@ -711,8 +691,8 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
                     id="edit-facebookToken"
                     type="password"
                     placeholder="Token de acesso da Conversions API"
-                    value={workspaceSettings.facebookToken}
-                    onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, facebookToken: e.target.value })}
+                    value={pixelSettings.facebookToken}
+                    onChange={(e) => setPixelSettings({ ...pixelSettings, facebookToken: e.target.value })}
                   />
                   <p className="text-xs text-muted-foreground">
                     🔒 Token armazenado com segurança no servidor (nunca exposto ao navegador)

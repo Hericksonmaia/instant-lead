@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,72 +8,92 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { MessageSquare, Eye, EyeOff, CheckCircle, XCircle, Save, Loader2, Info } from "lucide-react";
+import { MessageSquare, Eye, EyeOff, CheckCircle, XCircle, Save, Loader2, Info, Plus, Trash2, Edit2, X } from "lucide-react";
 import {
-  getEvolutionAPISettings,
-  updateEvolutionAPISettings,
   testEvolutionAPIConnection,
   validateEvolutionAPISettings,
   maskApiKey,
   type EvolutionAPISettings as EvolutionSettings,
 } from "@/lib/api/whatsapp";
 
+interface EvolutionInstance {
+  id: string;
+  workspace_id: string;
+  instance_name: string;
+  api_url: string;
+  api_key: string;
+  created_at: string;
+}
+
 export function EvolutionAPISettings() {
   const { currentWorkspace } = useWorkspace();
   const [loading, setLoading] = useState(true);
+  const [instances, setInstances] = useState<EvolutionInstance[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; error?: string } | null>(null);
 
-  const [settings, setSettings] = useState<EvolutionSettings>({
+  const [form, setForm] = useState<EvolutionSettings>({
     evolution_api_url: "",
     evolution_api_key: "",
     evolution_instance_name: "",
   });
 
-  const [originalApiKey, setOriginalApiKey] = useState("");
-
   useEffect(() => {
-    const fetchSettings = async () => {
-      if (!currentWorkspace) return;
-
-      setLoading(true);
-      try {
-        const data = await getEvolutionAPISettings(currentWorkspace.id);
-        if (data) {
-          setSettings(data);
-          setOriginalApiKey(data.evolution_api_key);
-        }
-      } catch (error) {
-        console.error("Error fetching Evolution API settings:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchSettings();
+    if (currentWorkspace) fetchInstances();
   }, [currentWorkspace]);
 
+  const fetchInstances = async () => {
+    if (!currentWorkspace) return;
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("evolution_instances" as any)
+      .select("*")
+      .eq("workspace_id", currentWorkspace.id)
+      .order("created_at");
+
+    if (error) {
+      console.error("Error fetching instances:", error);
+    } else {
+      setInstances((data as any[]) || []);
+    }
+    setLoading(false);
+  };
+
+  const resetForm = () => {
+    setForm({ evolution_api_url: "", evolution_api_key: "", evolution_instance_name: "" });
+    setEditingId(null);
+    setShowForm(false);
+    setTestResult(null);
+    setShowApiKey(false);
+  };
+
+  const startEdit = (instance: EvolutionInstance) => {
+    setForm({
+      evolution_api_url: instance.api_url,
+      evolution_api_key: instance.api_key,
+      evolution_instance_name: instance.instance_name,
+    });
+    setEditingId(instance.id);
+    setShowForm(true);
+    setTestResult(null);
+  };
+
   const handleTestConnection = async () => {
-    const validation = validateEvolutionAPISettings(settings);
+    const validation = validateEvolutionAPISettings(form);
     if (!validation.valid) {
       validation.errors.forEach((err) => toast.error(err));
       return;
     }
-
     setTesting(true);
     setTestResult(null);
-
     try {
-      const result = await testEvolutionAPIConnection(settings);
+      const result = await testEvolutionAPIConnection(form);
       setTestResult(result);
-
-      if (result.success) {
-        toast.success("Conexão bem-sucedida!");
-      } else {
-        toast.error(result.error || "Falha na conexão");
-      }
+      toast[result.success ? "success" : "error"](result.success ? "Conexão bem-sucedida!" : result.error || "Falha na conexão");
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Erro ao testar conexão";
       setTestResult({ success: false, error: errorMsg });
@@ -84,28 +105,55 @@ export function EvolutionAPISettings() {
 
   const handleSave = async () => {
     if (!currentWorkspace) return;
-
-    const validation = validateEvolutionAPISettings(settings);
+    const validation = validateEvolutionAPISettings(form);
     if (!validation.valid) {
       validation.errors.forEach((err) => toast.error(err));
       return;
     }
-
     setSaving(true);
-
     try {
-      await updateEvolutionAPISettings(currentWorkspace.id, settings);
-      setOriginalApiKey(settings.evolution_api_key);
-      toast.success("Configurações salvas!");
+      if (editingId) {
+        const { error } = await (supabase.from("evolution_instances" as any) as any)
+          .update({
+            api_url: form.evolution_api_url,
+            api_key: form.evolution_api_key,
+            instance_name: form.evolution_instance_name,
+          })
+          .eq("id", editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await (supabase.from("evolution_instances" as any) as any)
+          .insert({
+            workspace_id: currentWorkspace.id,
+            api_url: form.evolution_api_url,
+            api_key: form.evolution_api_key,
+            instance_name: form.evolution_instance_name,
+          });
+        if (error) throw error;
+      }
+      toast.success(editingId ? "Instância atualizada!" : "Instância adicionada!");
+      resetForm();
+      fetchInstances();
     } catch (error) {
-      console.error("Error saving Evolution API settings:", error);
-      toast.error("Erro ao salvar configurações");
+      console.error("Error saving instance:", error);
+      toast.error("Erro ao salvar instância");
     } finally {
       setSaving(false);
     }
   };
 
-  const getWebhookUrl = () => {
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await (supabase.from("evolution_instances" as any) as any).delete().eq("id", id);
+      if (error) throw error;
+      toast.success("Instância removida!");
+      fetchInstances();
+    } catch (error) {
+      toast.error("Erro ao remover instância");
+    }
+  };
+
+  const getWebhookUrl = (instanceId?: string) => {
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'shifwuxxsaussklbgadr';
     return `https://${projectId}.supabase.co/functions/v1/evolution-webhook?workspace_id=${currentWorkspace?.id || ''}`;
   };
@@ -120,7 +168,6 @@ export function EvolutionAPISettings() {
         <CardContent className="space-y-4">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
         </CardContent>
       </Card>
     );
@@ -131,108 +178,115 @@ export function EvolutionAPISettings() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <MessageSquare className="h-5 w-5" />
-          Integração WhatsApp (Evolution API)
+          Instâncias WhatsApp (Evolution API)
         </CardTitle>
         <CardDescription>
-          Configure a integração com a Evolution API para capturar mensagens do WhatsApp
+          Configure múltiplas instâncias da Evolution API para capturar mensagens do WhatsApp
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Form Fields */}
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="evolution_api_url">URL da Evolution API</Label>
-            <Input
-              id="evolution_api_url"
-              placeholder="https://sua-api.com"
-              value={settings.evolution_api_url}
-              onChange={(e) =>
-                setSettings({ ...settings, evolution_api_url: e.target.value })
-              }
-            />
+        {/* Instances List */}
+        {instances.length > 0 && (
+          <div className="space-y-3">
+            {instances.map((instance) => (
+              <div key={instance.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-sm">{instance.instance_name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{instance.api_url}</p>
+                </div>
+                <div className="flex gap-1 ml-2">
+                  <Button variant="ghost" size="icon" onClick={() => startEdit(instance)}>
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleDelete(instance.id)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
+        )}
 
-          <div className="space-y-2">
-            <Label htmlFor="evolution_api_key">API Key</Label>
-            <div className="relative">
+        {instances.length === 0 && !showForm && (
+          <p className="text-sm text-muted-foreground text-center py-4">Nenhuma instância configurada</p>
+        )}
+
+        {/* Add/Edit Form */}
+        {showForm ? (
+          <div className="space-y-4 border rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium text-sm">{editingId ? "Editar Instância" : "Nova Instância"}</h4>
+              <Button variant="ghost" size="icon" onClick={resetForm}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <Label>URL da Evolution API</Label>
               <Input
-                id="evolution_api_key"
-                type={showApiKey ? "text" : "password"}
-                placeholder="Sua API Key"
-                value={showApiKey ? settings.evolution_api_key : maskApiKey(settings.evolution_api_key)}
-                onChange={(e) =>
-                  setSettings({ ...settings, evolution_api_key: e.target.value })
-                }
-                className="pr-10"
+                placeholder="https://sua-api.com"
+                value={form.evolution_api_url}
+                onChange={(e) => setForm({ ...form, evolution_api_url: e.target.value })}
               />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                onClick={() => setShowApiKey(!showApiKey)}
-              >
-                {showApiKey ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>API Key</Label>
+              <div className="relative">
+                <Input
+                  type={showApiKey ? "text" : "password"}
+                  placeholder="Sua API Key"
+                  value={showApiKey ? form.evolution_api_key : maskApiKey(form.evolution_api_key)}
+                  onChange={(e) => setForm({ ...form, evolution_api_key: e.target.value })}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                >
+                  {showApiKey ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Nome da Instância</Label>
+              <Input
+                placeholder="minha-instancia"
+                value={form.evolution_instance_name}
+                onChange={(e) => setForm({ ...form, evolution_instance_name: e.target.value })}
+              />
+            </div>
+
+            {testResult && (
+              <Alert variant={testResult.success ? "default" : "destructive"}>
+                {testResult.success ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                <AlertDescription>
+                  {testResult.success ? "Conexão estabelecida com sucesso!" : testResult.error || "Falha na conexão"}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={handleTestConnection} disabled={testing || saving}>
+                {testing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                Testar
+              </Button>
+              <Button onClick={handleSave} disabled={saving || testing}>
+                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Salvar
               </Button>
             </div>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="evolution_instance_name">Nome da Instância</Label>
-            <Input
-              id="evolution_instance_name"
-              placeholder="minha-instancia"
-              value={settings.evolution_instance_name}
-              onChange={(e) =>
-                setSettings({ ...settings, evolution_instance_name: e.target.value })
-              }
-            />
-          </div>
-        </div>
-
-        {/* Test Result */}
-        {testResult && (
-          <Alert variant={testResult.success ? "default" : "destructive"}>
-            {testResult.success ? (
-              <CheckCircle className="h-4 w-4" />
-            ) : (
-              <XCircle className="h-4 w-4" />
-            )}
-            <AlertDescription>
-              {testResult.success
-                ? "Conexão com a Evolution API estabelecida com sucesso!"
-                : testResult.error || "Falha na conexão"}
-            </AlertDescription>
-          </Alert>
+        ) : (
+          <Button variant="outline" onClick={() => setShowForm(true)} className="w-full">
+            <Plus className="h-4 w-4 mr-2" />
+            Adicionar Instância
+          </Button>
         )}
-
-        {/* Actions */}
-        <div className="flex gap-3">
-          <Button
-            variant="outline"
-            onClick={handleTestConnection}
-            disabled={testing || saving}
-          >
-            {testing ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <CheckCircle className="h-4 w-4 mr-2" />
-            )}
-            Testar Conexão
-          </Button>
-          <Button onClick={handleSave} disabled={saving || testing}>
-            {saving ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4 mr-2" />
-            )}
-            Salvar Configurações
-          </Button>
-        </div>
 
         {/* Webhook Instructions */}
         <Alert>

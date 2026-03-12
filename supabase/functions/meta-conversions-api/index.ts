@@ -61,10 +61,10 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch link and workspace to get token
+    // Fetch link and workspace to get token (link-level overrides workspace)
     const { data: link, error: linkError } = await supabase
       .from('redirect_links')
-      .select('workspace_id, workspaces(facebook_access_token, facebook_pixel_id)')
+      .select('workspace_id, facebook_pixel_id, facebook_access_token, workspaces(facebook_access_token, facebook_pixel_id)')
       .eq('id', payload.linkId)
       .single();
 
@@ -74,8 +74,9 @@ serve(async (req) => {
     }
 
     const workspace = (link.workspaces as any);
-    const accessToken = workspace?.facebook_access_token;
-    const pixelId = workspace?.facebook_pixel_id;
+    // Link-level credentials take priority, fallback to workspace
+    const accessToken = link.facebook_access_token || workspace?.facebook_access_token;
+    const pixelId = link.facebook_pixel_id || workspace?.facebook_pixel_id;
 
     if (!accessToken || !pixelId) {
       console.error("Missing Facebook credentials for workspace");
