@@ -1,0 +1,2 @@
+ALTER TABLE public.redirect_links DROP CONSTRAINT redirect_links_mode_check;
+ALTER TABLE public.redirect_links ADD CONSTRAINT redirect_links_mode_check CHECK (mode = ANY (ARRAY['form'::text, 'direct'::text, 'menu'::text]));
