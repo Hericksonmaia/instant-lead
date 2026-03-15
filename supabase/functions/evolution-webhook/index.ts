@@ -315,36 +315,49 @@ serve(async (req) => {
 
     await supabase.from('whatsapp_messages').insert({ ...baseMessage, message_type: 'other' });
 
-    // Send event to Meta CAPI if configured
-    if (leadId && workspaceData?.facebook_access_token && workspaceData?.facebook_pixel_id) {
+    // Send event to Meta CAPI - check link-level credentials first, then workspace fallback
+    if (leadId) {
       try {
-        const eventName = isFirstMessage ? 'Lead' : 'LeadEngagement';
-        const eventTime = Math.floor(timestamp.getTime() / 1000);
-        
-        const metaEvent = {
-          event_name: eventName,
-          event_time: eventTime,
-          event_id: `whatsapp_${payload.data.key.id}`,
-          action_source: "website",
-          user_data: { ph: normalizedPhone, external_id: leadId },
-          custom_data: {
-            message_content: messageContent.substring(0, 100),
-            message_type: isFirstMessage ? 'first_message' : 'subsequent',
-            source: 'whatsapp',
-          },
-        };
+        // Get link-level credentials for this lead
+        const { data: leadWithLink } = await supabase
+          .from('leads')
+          .select('link_id, redirect_links(facebook_pixel_id, facebook_access_token)')
+          .eq('id', leadId)
+          .single();
 
-        await fetch(
-          `https://graph.facebook.com/v18.0/${workspaceData.facebook_pixel_id}/events`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              data: [metaEvent],
-              access_token: workspaceData.facebook_access_token,
-            }),
-          }
-        );
+        const linkData = leadWithLink?.redirect_links as any;
+        const accessToken = linkData?.facebook_access_token || workspaceData?.facebook_access_token;
+        const pixelId = linkData?.facebook_pixel_id || workspaceData?.facebook_pixel_id;
+
+        if (accessToken && pixelId) {
+          const eventName = isFirstMessage ? 'Lead' : 'LeadEngagement';
+          const eventTime = Math.floor(timestamp.getTime() / 1000);
+          
+          const metaEvent = {
+            event_name: eventName,
+            event_time: eventTime,
+            event_id: `whatsapp_${payload.data.key.id}`,
+            action_source: "website",
+            user_data: { ph: normalizedPhone, external_id: leadId },
+            custom_data: {
+              message_content: messageContent.substring(0, 100),
+              message_type: isFirstMessage ? 'first_message' : 'subsequent',
+              source: 'whatsapp',
+            },
+          };
+
+          await fetch(
+            `https://graph.facebook.com/v18.0/${pixelId}/events`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                data: [metaEvent],
+                access_token: accessToken,
+              }),
+            }
+          );
+        }
       } catch (metaError) {
         console.error("Error sending to Meta CAPI:", metaError);
       }

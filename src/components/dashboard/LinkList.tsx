@@ -128,6 +128,8 @@ export const LinkList = () => {
           theme_button_bg: original.theme_button_bg,
           theme_button_text: original.theme_button_text,
           theme_font: original.theme_font,
+          facebook_pixel_id: original.facebook_pixel_id,
+          facebook_access_token: original.facebook_access_token,
         })
         .select()
         .single();
@@ -216,8 +218,8 @@ export const LinkList = () => {
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <h3 className="font-semibold">{link.name}</h3>
-                <Badge variant={link.mode === "form" ? "default" : "secondary"}>
-                  {link.mode === "form" ? "Formulário" : "Direto"}
+                <Badge variant={link.mode === "form" ? "default" : link.mode === "menu" ? "outline" : "secondary"}>
+                  {link.mode === "form" ? "Formulário" : link.mode === "menu" ? "Menu" : "Direto"}
                 </Badge>
                 {link.tags.map((tag) => (
                   <TagBadge
