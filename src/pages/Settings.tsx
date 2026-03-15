@@ -238,7 +238,7 @@ function SettingsContent() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="pixel_id">Facebook Pixel ID</Label>
+                  <Label htmlFor="pixel_id">Facebook Pixel ID (fallback padrão)</Label>
                   <Input
                     id="pixel_id"
                     value={workspace.facebook_pixel_id}
@@ -247,9 +247,12 @@ function SettingsContent() {
                     }
                     placeholder="Ex: 1234567890123456"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Usado como padrão quando um link não tem Pixel próprio configurado.
+                  </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="access_token">Facebook Access Token</Label>
+                  <Label htmlFor="access_token">Facebook Access Token (fallback padrão)</Label>
                   <Input
                     id="access_token"
                     type="password"
@@ -259,6 +262,9 @@ function SettingsContent() {
                     }
                     placeholder="Token de acesso da Conversions API"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Usado como padrão quando um link não tem Token próprio configurado.
+                  </p>
                 </div>
                 <Button onClick={saveWorkspace} disabled={saving}>
                   <Save className="h-4 w-4 mr-2" />

@@ -52,7 +52,7 @@ export function SaleDialog({
   const [loadingTags, setLoadingTags] = useState(false);
 
   // Load tags when dialog opens
-  useState(() => {
+  useEffect(() => {
     if (open && currentWorkspace) {
       setLoadingTags(true);
       supabase
@@ -64,7 +64,7 @@ export function SaleDialog({
           setLoadingTags(false);
         });
     }
-  });
+  }, [open, currentWorkspace]);
 
   const toggleTag = (tagId: string) => {
     setSelectedTags((prev) =>

@@ -94,50 +94,6 @@ export function hasRecentMessage(lastMessage?: WhatsAppMessage): boolean {
   return now - messageTime < twentyFourHours;
 }
 
-// Update Evolution API settings for a workspace
-export async function updateEvolutionAPISettings(
-  workspaceId: string,
-  settings: EvolutionAPISettings
-): Promise<void> {
-  const { error } = await supabase
-    .from('workspaces')
-    .update({
-      evolution_api_url: settings.evolution_api_url || null,
-      evolution_api_key: settings.evolution_api_key || null,
-      evolution_instance_name: settings.evolution_instance_name || null,
-    })
-    .eq('id', workspaceId);
-
-  if (error) {
-    console.error('Error updating Evolution API settings:', error);
-    throw error;
-  }
-}
-
-// Get Evolution API settings for a workspace
-export async function getEvolutionAPISettings(
-  workspaceId: string
-): Promise<EvolutionAPISettings | null> {
-  const { data, error } = await supabase
-    .from('workspaces')
-    .select('evolution_api_url, evolution_api_key, evolution_instance_name')
-    .eq('id', workspaceId)
-    .single();
-
-  if (error) {
-    console.error('Error fetching Evolution API settings:', error);
-    throw error;
-  }
-
-  if (!data?.evolution_api_url) return null;
-
-  return {
-    evolution_api_url: data.evolution_api_url || '',
-    evolution_api_key: data.evolution_api_key || '',
-    evolution_instance_name: data.evolution_instance_name || '',
-  };
-}
-
 // Test connection to Evolution API
 export async function testEvolutionAPIConnection(
   settings: EvolutionAPISettings

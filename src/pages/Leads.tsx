@@ -75,7 +75,8 @@ function LeadsContent() {
           )
         `)
         .in("link_id", linkIds)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(5000);
 
       if (error) {
         console.error("Error fetching leads:", error);

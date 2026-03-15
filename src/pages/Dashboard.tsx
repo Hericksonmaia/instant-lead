@@ -111,7 +111,8 @@ const DashboardContent = () => {
         .from("leads")
         .select("id, link_id, created_at, name, phone, sold, sale_value, sale_date")
         .in("link_id", linkIds)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(5000);
 
       if (!allLeads) {
         setLoading(false);
