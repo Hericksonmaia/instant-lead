@@ -128,6 +128,8 @@ export const LinkList = () => {
           theme_button_bg: original.theme_button_bg,
           theme_button_text: original.theme_button_text,
           theme_font: original.theme_font,
+          facebook_pixel_id: original.facebook_pixel_id,
+          facebook_access_token: original.facebook_access_token,
         })
         .select()
         .single();
