@@ -229,6 +229,19 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
         }
       }
 
+      // Upload logo if changed
+      let finalLogoUrl = logoUrl;
+      if (logoFile) {
+        const fileExt = logoFile.name.split(".").pop();
+        const filePath = `${link.id}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from("logos")
+          .upload(filePath, logoFile, { upsert: true });
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage.from("logos").getPublicUrl(filePath);
+        finalLogoUrl = urlData.publicUrl;
+      }
+
       // Save link settings including theme and description
       const { error: linkError } = await supabase
         .from("redirect_links")
@@ -250,6 +263,7 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
           theme_font: theme.font,
           facebook_pixel_id: pixelSettings.pixelId || null,
           facebook_access_token: pixelSettings.facebookToken || null,
+          logo_url: finalLogoUrl || null,
         } as any)
         .eq("id", link.id);
 
