@@ -1,47 +1,59 @@
 
 
-# Plano: Corrigir vinculacao de mensagens WhatsApp com leads
+## Melhorias no Menu: Logo + Ícones Nativos
 
-## Problema Identificado
+### Estado Atual
+- O `MenuPage` mostra uma letra (inicial do nome) como avatar, sem suporte a logo.
+- A tabela `menu_items` já possui coluna `icon` (text), mas ela nunca é usada na UI.
+- Não existe campo `logo_url` na tabela `redirect_links`.
 
-O lead tem telefone `5585998372658` mas o WhatsApp envia `558598372658` (sem o nono digito). Apos normalizacao, o webhook busca `8598372658` mas o lead tem `85998372658`. O `ilike` nao encontra correspondencia porque os numeros sao diferentes.
+---
 
-Isso e um problema conhecido com numeros brasileiros -- o WhatsApp as vezes armazena numeros de celular sem o nono digito (9).
+### 1. Logo no Perfil
 
-## Solucao
-
-Melhorar a logica de busca de leads no webhook para considerar variantes de numeros brasileiros (com e sem o nono digito).
-
-### Mudancas Tecnicas
-
-**1. Atualizar `supabase/functions/evolution-webhook/index.ts`**
-
-Adicionar funcao que gera variantes do numero brasileiro:
-- Numero original normalizado: `8598372658`
-- Com nono digito inserido: `85998372658` (adicionar `9` apos o DDD de 2 digitos)
-- Com prefixo 55: `558598372658`, `5585998372658`
-
-Atualizar a busca de leads para testar todas essas variantes.
-
-```text
-Variantes geradas para 8598372658:
-  - 8598372658
-  - 85998372658    (com 9o digito)
-  - 558598372658
-  - 5585998372658  (com 9o digito + 55)
+**Migração SQL**: Adicionar `logo_url` na tabela `redirect_links`.
+```sql
+ALTER TABLE redirect_links ADD COLUMN logo_url text;
 ```
 
-**2. Logica da funcao `generatePhoneVariants`**
+**Storage**: Criar um bucket `logos` para upload de imagens.
 
-Para numeros com 10 digitos (DDD + 8 digitos, sem o 9):
-- Inserir `9` na posicao 2 (apos o DDD) para gerar a variante de 11 digitos
+**EditLinkDialog.tsx** (aba Menu ou Tema): Adicionar campo de upload de logo com preview. Salva a URL no `redirect_links.logo_url`.
 
-Para numeros com 11 digitos (DDD + 9 digitos, com o 9):
-- Remover o digito na posicao 2 para gerar a variante de 10 digitos
+**MenuPage.tsx**: Se `logo_url` existir, renderiza `<img>` no lugar da letra inicial. Senão, mantém o fallback da letra.
 
-Sempre testar tambem com e sem o prefixo `55`.
+---
 
-**3. Nenhuma mudanca no banco de dados**
+### 2. Ícones Nativos nos Itens do Menu
 
-A correcao e apenas na logica da edge function. Nao requer migracao.
+Mapa de ícones predefinidos com SVGs inline (para não depender de Lucide no menu público):
+
+| Chave | Ícone |
+|-------|-------|
+| `whatsapp` | WhatsApp (SVG) |
+| `facebook` | Facebook (SVG) |
+| `instagram` | Instagram (SVG) |
+| `tiktok` | TikTok (SVG) |
+| `youtube` | YouTube (SVG) |
+| `location` | Pin/Localização (SVG) |
+| `email` | Envelope (SVG) |
+| `website` | Globe (SVG) |
+| `none` | Sem ícone (ExternalLink) |
+
+**EditLinkDialog.tsx** (aba Menu): Ao adicionar/editar um item, mostrar um `<Select>` com os ícones disponíveis (nome + mini preview). O valor selecionado é salvo na coluna `icon` da tabela `menu_items`.
+
+**MenuPage.tsx**: Se o item tiver `icon`, renderiza o SVG correspondente à esquerda do botão. O `ExternalLink` à direita é removido ou mantido apenas quando `icon` é `none`.
+
+---
+
+### Arquivos Afetados
+
+| Arquivo | Mudança |
+|---------|---------|
+| **DB Migration** | `logo_url` em `redirect_links` + bucket `logos` |
+| **MenuPage.tsx** | Renderizar logo + ícones SVG nos botões |
+| **EditLinkDialog.tsx** | Upload de logo + seletor de ícone nos itens do menu |
+| **RedirectPage.tsx** | Passar `logo_url` para o `MenuPage` |
+| **get_redirect_data RPC** | Incluir `logo_url` no retorno |
+| **get_menu_items RPC** | Já retorna `icon`, sem mudança |
 
