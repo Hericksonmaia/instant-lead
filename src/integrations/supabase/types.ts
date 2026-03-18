@@ -598,6 +598,7 @@ export type Database = {
           facebook_pixel_id: string
           headline: string
           link_id: string
+          logo_url: string
           message_template: string
           mode: string
           name: string
