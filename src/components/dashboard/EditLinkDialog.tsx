@@ -130,6 +130,7 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
         link_id: link.id,
         label: newMenuItem.label,
         url: newMenuItem.url,
+        icon: newMenuItem.icon === "none" ? null : newMenuItem.icon,
         order_index: maxOrder + 1,
       });
       if (error) throw error;
