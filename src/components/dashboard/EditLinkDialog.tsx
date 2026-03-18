@@ -134,7 +134,7 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
       });
       if (error) throw error;
       toast.success("Link adicionado!");
-      setNewMenuItem({ label: "", url: "" });
+      setNewMenuItem({ label: "", url: "", icon: "none" });
       fetchMenuItems();
     } catch (error: any) {
       toast.error("Erro ao adicionar link");
