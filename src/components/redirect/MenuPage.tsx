@@ -1,3 +1,4 @@
+import { MenuIcon } from "./MenuIcons";
 import { ExternalLink } from "lucide-react";
 
 interface MenuItem {
@@ -14,6 +15,7 @@ interface MenuPageProps {
     headline?: string;
     subtitle?: string;
     description?: string;
+    logo_url?: string;
     theme_bg_color?: string;
     theme_text_color?: string;
     theme_button_bg?: string;
@@ -47,7 +49,6 @@ export const MenuPage = ({ link, menuItems }: MenuPageProps) => {
       className="min-h-screen flex flex-col items-center px-4 py-12"
       style={{ backgroundColor: bgColor, color: textColor, fontFamily }}
     >
-      {/* Google Fonts */}
       <link
         href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(link.theme_font || "Inter")}:wght@400;600;700&display=swap`}
         rel="stylesheet"
@@ -56,12 +57,20 @@ export const MenuPage = ({ link, menuItems }: MenuPageProps) => {
       <div className="w-full max-w-md space-y-6">
         {/* Profile section */}
         <div className="text-center space-y-3">
-          <div
-            className="w-20 h-20 mx-auto rounded-full flex items-center justify-center text-2xl font-bold"
-            style={{ backgroundColor: btnBg, color: btnText }}
-          >
-            {(link.headline || link.name).charAt(0).toUpperCase()}
-          </div>
+          {link.logo_url ? (
+            <img
+              src={link.logo_url}
+              alt={link.headline || link.name}
+              className="w-20 h-20 mx-auto rounded-full object-cover"
+            />
+          ) : (
+            <div
+              className="w-20 h-20 mx-auto rounded-full flex items-center justify-center text-2xl font-bold"
+              style={{ backgroundColor: btnBg, color: btnText }}
+            >
+              {(link.headline || link.name).charAt(0).toUpperCase()}
+            </div>
+          )}
           <h1 className="text-2xl font-bold">{link.headline || link.name}</h1>
           {(link.description || link.subtitle) && (
             <p className="text-sm opacity-80">{link.description || link.subtitle}</p>
@@ -78,14 +87,19 @@ export const MenuPage = ({ link, menuItems }: MenuPageProps) => {
                 href={item.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between w-full px-5 py-4 rounded-xl text-center font-semibold transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
+                className="flex items-center w-full px-5 py-4 rounded-xl font-semibold transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] gap-3"
                 style={{
                   backgroundColor: btnBg,
                   color: btnText,
                 }}
               >
+                {item.icon && item.icon !== "none" ? (
+                  <MenuIcon name={item.icon} className="shrink-0" />
+                ) : null}
                 <span className="flex-1 text-center">{item.label}</span>
-                <ExternalLink className="w-4 h-4 opacity-60 shrink-0" />
+                {(!item.icon || item.icon === "none") && (
+                  <ExternalLink className="w-4 h-4 opacity-60 shrink-0" />
+                )}
               </a>
             ))}
         </div>

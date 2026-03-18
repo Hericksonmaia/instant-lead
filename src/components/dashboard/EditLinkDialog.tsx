@@ -9,7 +9,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, GripVertical } from "lucide-react";
+import { Loader2, Plus, Trash2, GripVertical, Upload, X } from "lucide-react";
+import { MENU_ICON_OPTIONS, MenuIcon } from "@/components/redirect/MenuIcons";
 
 interface EditLinkDialogProps {
   link: any;
@@ -28,6 +29,7 @@ interface MenuItem {
   id?: string;
   label: string;
   url: string;
+  icon?: string;
   order_index: number;
 }
 
@@ -37,7 +39,10 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
   const [loading, setLoading] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [newMenuItem, setNewMenuItem] = useState({ label: "", url: "" });
+  const [newMenuItem, setNewMenuItem] = useState({ label: "", url: "", icon: "none" });
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string>("");
   const [newPhone, setNewPhone] = useState("");
   const [settings, setSettings] = useState({
     name: link.name || "",
@@ -91,6 +96,9 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
         pixelId: (link as any).facebook_pixel_id || "",
         facebookToken: (link as any).facebook_access_token || "",
       });
+      setLogoUrl((link as any).logo_url || "");
+      setLogoPreview((link as any).logo_url || null);
+      setLogoFile(null);
     }
   }, [open, link]);
 
@@ -122,11 +130,12 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
         link_id: link.id,
         label: newMenuItem.label,
         url: newMenuItem.url,
+        icon: newMenuItem.icon === "none" ? null : newMenuItem.icon,
         order_index: maxOrder + 1,
       });
       if (error) throw error;
       toast.success("Link adicionado!");
-      setNewMenuItem({ label: "", url: "" });
+      setNewMenuItem({ label: "", url: "", icon: "none" });
       fetchMenuItems();
     } catch (error: any) {
       toast.error("Erro ao adicionar link");
@@ -220,6 +229,19 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
         }
       }
 
+      // Upload logo if changed
+      let finalLogoUrl = logoUrl;
+      if (logoFile) {
+        const fileExt = logoFile.name.split(".").pop();
+        const filePath = `${link.id}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from("logos")
+          .upload(filePath, logoFile, { upsert: true });
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage.from("logos").getPublicUrl(filePath);
+        finalLogoUrl = urlData.publicUrl;
+      }
+
       // Save link settings including theme and description
       const { error: linkError } = await supabase
         .from("redirect_links")
@@ -241,6 +263,7 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
           theme_font: theme.font,
           facebook_pixel_id: pixelSettings.pixelId || null,
           facebook_access_token: pixelSettings.facebookToken || null,
+          logo_url: finalLogoUrl || null,
         } as any)
         .eq("id", link.id);
 
@@ -329,6 +352,50 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
             <p className="text-xs text-muted-foreground">
               Adicione os links que aparecerão na página de menu (modo "Menu").
             </p>
+
+            {/* Logo upload */}
+            <div className="space-y-2">
+              <Label>Logo do Perfil</Label>
+              <div className="flex items-center gap-4">
+                {logoPreview ? (
+                  <div className="relative">
+                    <img src={logoPreview} alt="Logo" className="w-16 h-16 rounded-full object-cover border" />
+                    <button
+                      type="button"
+                      onClick={() => { setLogoFile(null); setLogoPreview(null); setLogoUrl(""); }}
+                      className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 rounded-full border-2 border-dashed flex items-center justify-center text-muted-foreground">
+                    <Upload className="w-5 h-5" />
+                  </div>
+                )}
+                <div>
+                  <label className="cursor-pointer">
+                    <span className="text-sm text-primary hover:underline">
+                      {logoPreview ? "Trocar logo" : "Fazer upload"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setLogoFile(file);
+                          setLogoPreview(URL.createObjectURL(file));
+                        }
+                      }}
+                    />
+                  </label>
+                  <p className="text-xs text-muted-foreground">JPG, PNG. Máx 2MB.</p>
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label>Novo Link</Label>
               <div className="flex flex-col gap-2">
@@ -338,10 +405,29 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
                   onChange={(e) => setNewMenuItem({ ...newMenuItem, label: e.target.value })}
                 />
                 <div className="flex gap-2">
+                  <Select
+                    value={newMenuItem.icon}
+                    onValueChange={(v) => setNewMenuItem({ ...newMenuItem, icon: v })}
+                  >
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Ícone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MENU_ICON_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          <span className="flex items-center gap-2">
+                            {opt.value !== "none" && <MenuIcon name={opt.value} className="inline-flex" />}
+                            {opt.label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Input
                     placeholder="https://instagram.com/..."
                     value={newMenuItem.url}
                     onChange={(e) => setNewMenuItem({ ...newMenuItem, url: e.target.value })}
+                    className="flex-1"
                   />
                   <Button onClick={addMenuItem}>
                     <Plus className="w-4 h-4 mr-2" />
@@ -359,13 +445,17 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {menuItems.map((item, index) => (
+                  {menuItems.map((item) => (
                     <div
                       key={item.id}
                       className="flex items-center justify-between p-3 border rounded-lg"
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+                        {item.icon && item.icon !== "none" ? (
+                          <MenuIcon name={item.icon} className="shrink-0 text-muted-foreground" />
+                        ) : (
+                          <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+                        )}
                         <div className="min-w-0">
                           <p className="text-sm font-medium truncate">{item.label}</p>
                           <p className="text-xs text-muted-foreground truncate">{item.url}</p>

@@ -270,7 +270,7 @@ const RedirectPage = () => {
 
   // Menu mode
   if (link?.mode === "menu") {
-    return <MenuPage link={{ ...link, id: link.link_id }} menuItems={menuItems} />;
+    return <MenuPage link={{ ...link, id: link.link_id, logo_url: link.logo_url }} menuItems={menuItems} />;
   }
 
   if (!link || link.mode === "direct") {
