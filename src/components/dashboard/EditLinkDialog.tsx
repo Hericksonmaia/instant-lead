@@ -96,6 +96,9 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
         pixelId: (link as any).facebook_pixel_id || "",
         facebookToken: (link as any).facebook_access_token || "",
       });
+      setLogoUrl((link as any).logo_url || "");
+      setLogoPreview((link as any).logo_url || null);
+      setLogoFile(null);
     }
   }, [open, link]);
 
