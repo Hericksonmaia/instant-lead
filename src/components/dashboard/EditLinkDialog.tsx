@@ -29,6 +29,7 @@ interface MenuItem {
   id?: string;
   label: string;
   url: string;
+  icon?: string;
   order_index: number;
 }
 
