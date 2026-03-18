@@ -39,7 +39,10 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
   const [loading, setLoading] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [newMenuItem, setNewMenuItem] = useState({ label: "", url: "" });
+  const [newMenuItem, setNewMenuItem] = useState({ label: "", url: "", icon: "none" });
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string>("");
   const [newPhone, setNewPhone] = useState("");
   const [settings, setSettings] = useState({
     name: link.name || "",
