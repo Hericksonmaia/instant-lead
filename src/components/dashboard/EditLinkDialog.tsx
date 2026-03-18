@@ -9,7 +9,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, GripVertical } from "lucide-react";
+import { Loader2, Plus, Trash2, GripVertical, Upload, X } from "lucide-react";
+import { MENU_ICON_OPTIONS, MenuIcon } from "@/components/redirect/MenuIcons";
 
 interface EditLinkDialogProps {
   link: any;
