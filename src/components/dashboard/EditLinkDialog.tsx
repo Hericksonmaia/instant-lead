@@ -352,6 +352,50 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
             <p className="text-xs text-muted-foreground">
               Adicione os links que aparecerão na página de menu (modo "Menu").
             </p>
+
+            {/* Logo upload */}
+            <div className="space-y-2">
+              <Label>Logo do Perfil</Label>
+              <div className="flex items-center gap-4">
+                {logoPreview ? (
+                  <div className="relative">
+                    <img src={logoPreview} alt="Logo" className="w-16 h-16 rounded-full object-cover border" />
+                    <button
+                      type="button"
+                      onClick={() => { setLogoFile(null); setLogoPreview(null); setLogoUrl(""); }}
+                      className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 rounded-full border-2 border-dashed flex items-center justify-center text-muted-foreground">
+                    <Upload className="w-5 h-5" />
+                  </div>
+                )}
+                <div>
+                  <label className="cursor-pointer">
+                    <span className="text-sm text-primary hover:underline">
+                      {logoPreview ? "Trocar logo" : "Fazer upload"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setLogoFile(file);
+                          setLogoPreview(URL.createObjectURL(file));
+                        }
+                      }}
+                    />
+                  </label>
+                  <p className="text-xs text-muted-foreground">JPG, PNG. Máx 2MB.</p>
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label>Novo Link</Label>
               <div className="flex flex-col gap-2">
@@ -361,10 +405,29 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
                   onChange={(e) => setNewMenuItem({ ...newMenuItem, label: e.target.value })}
                 />
                 <div className="flex gap-2">
+                  <Select
+                    value={newMenuItem.icon}
+                    onValueChange={(v) => setNewMenuItem({ ...newMenuItem, icon: v })}
+                  >
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Ícone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MENU_ICON_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          <span className="flex items-center gap-2">
+                            {opt.value !== "none" && <MenuIcon name={opt.value} className="inline-flex" />}
+                            {opt.label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Input
                     placeholder="https://instagram.com/..."
                     value={newMenuItem.url}
                     onChange={(e) => setNewMenuItem({ ...newMenuItem, url: e.target.value })}
+                    className="flex-1"
                   />
                   <Button onClick={addMenuItem}>
                     <Plus className="w-4 h-4 mr-2" />
@@ -382,13 +445,17 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {menuItems.map((item, index) => (
+                  {menuItems.map((item) => (
                     <div
                       key={item.id}
                       className="flex items-center justify-between p-3 border rounded-lg"
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+                        {item.icon && item.icon !== "none" ? (
+                          <MenuIcon name={item.icon} className="shrink-0 text-muted-foreground" />
+                        ) : (
+                          <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+                        )}
                         <div className="min-w-0">
                           <p className="text-sm font-medium truncate">{item.label}</p>
                           <p className="text-xs text-muted-foreground truncate">{item.url}</p>
