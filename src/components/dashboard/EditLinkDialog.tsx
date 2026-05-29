@@ -229,11 +229,13 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
         }
       }
 
-      // Upload logo if changed
+      // Upload logo if changed (path must start with the uploader's user_id for RLS)
       let finalLogoUrl = logoUrl;
       if (logoFile) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Não autenticado");
         const fileExt = logoFile.name.split(".").pop();
-        const filePath = `${link.id}.${fileExt}`;
+        const filePath = `${user.id}/${link.id}.${fileExt}`;
         const { error: uploadError } = await supabase.storage
           .from("logos")
           .upload(filePath, logoFile, { upsert: true });

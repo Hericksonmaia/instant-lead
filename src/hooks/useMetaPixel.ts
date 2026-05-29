@@ -38,12 +38,20 @@ export const useMetaPixel = (config: MetaPixelConfig | null) => {
   useEffect(() => {
     if (!config?.pixelId || pixelLoadedRef.current) return;
 
+    // Strict format validation: Meta Pixel IDs are numeric strings (typically 15-16 digits).
+    // Rejecting anything else prevents XSS via script.innerHTML interpolation.
+    const pixelId = String(config.pixelId);
+    if (!/^[0-9]{5,25}$/.test(pixelId)) {
+      console.warn("Invalid Meta Pixel ID format; ignoring.");
+      return;
+    }
+
     const loadPixel = () => {
       if (window.fbq) return;
 
-      // Create pixel script
-      const script = document.createElement("script");
-      script.innerHTML = `
+      // Load the base fbevents.js via a dedicated script tag (no string interpolation).
+      const baseScript = document.createElement("script");
+      baseScript.innerHTML = `
         !function(f,b,e,v,n,t,s)
         {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
         n.callMethod.apply(n,arguments):n.queue.push(arguments)};
@@ -52,17 +60,19 @@ export const useMetaPixel = (config: MetaPixelConfig | null) => {
         t.src=v;s=b.getElementsByTagName(e)[0];
         s.parentNode.insertBefore(t,s)}(window, document,'script',
         'https://connect.facebook.net/en_US/fbevents.js');
-        fbq('init', '${config.pixelId}');
       `;
-      document.head.appendChild(script);
+      document.head.appendChild(baseScript);
 
-      // Add noscript pixel
+      // Init the pixel by calling fbq with the validated id as a function argument.
+      window.fbq?.("init", pixelId);
+
+      // Noscript fallback image (src uses validated numeric id only).
       const noscript = document.createElement("noscript");
       const img = document.createElement("img");
       img.height = 1;
       img.width = 1;
       img.style.display = "none";
-      img.src = `https://www.facebook.com/tr?id=${config.pixelId}&ev=PageView&noscript=1`;
+      img.src = `https://www.facebook.com/tr?id=${encodeURIComponent(pixelId)}&ev=PageView&noscript=1`;
       noscript.appendChild(img);
       document.body.appendChild(noscript);
 

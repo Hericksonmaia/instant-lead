@@ -511,6 +511,7 @@ export type Database = {
           name: string
           owner_id: string
           timezone: string | null
+          webhook_secret: string
         }
         Insert: {
           created_at?: string | null
@@ -523,6 +524,7 @@ export type Database = {
           name: string
           owner_id: string
           timezone?: string | null
+          webhook_secret?: string
         }
         Update: {
           created_at?: string | null
@@ -535,6 +537,7 @@ export type Database = {
           name?: string
           owner_id?: string
           timezone?: string | null
+          webhook_secret?: string
         }
         Relationships: []
       }

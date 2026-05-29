@@ -155,7 +155,8 @@ export function EvolutionAPISettings() {
 
   const getWebhookUrl = (instanceId?: string) => {
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'shifwuxxsaussklbgadr';
-    return `https://${projectId}.supabase.co/functions/v1/evolution-webhook?workspace_id=${currentWorkspace?.id || ''}`;
+    const secret = (currentWorkspace as any)?.webhook_secret || '';
+    return `https://${projectId}.supabase.co/functions/v1/evolution-webhook?workspace_id=${currentWorkspace?.id || ''}&secret=${secret}`;
   };
 
   if (loading) {
