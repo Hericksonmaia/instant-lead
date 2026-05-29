@@ -2,7 +2,11 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 
-type Workspace = Tables<"workspaces">;
+// Exclude sensitive credential columns from the client-facing Workspace type
+type Workspace = Omit<
+  Tables<"workspaces">,
+  "facebook_access_token" | "evolution_api_key" | "evolution_api_url" | "evolution_instance_name"
+>;
 
 interface WorkspaceContextType {
   workspaces: Workspace[];
