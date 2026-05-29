@@ -20,9 +20,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchWorkspaces = async () => {
+    // Exclude sensitive credentials (facebook_access_token, evolution_api_key, etc.)
+    // Those are fetched server-side or via dedicated screens with explicit user action.
     const { data, error } = await supabase
       .from("workspaces")
-      .select("*")
+      .select("id, owner_id, name, timezone, facebook_pixel_id, created_at")
       .order("created_at", { ascending: true });
 
     if (error) {
