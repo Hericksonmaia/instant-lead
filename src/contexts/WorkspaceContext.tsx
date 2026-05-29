@@ -26,9 +26,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const fetchWorkspaces = async () => {
     // Exclude sensitive credentials (facebook_access_token, evolution_api_key, etc.)
     // Those are fetched server-side or via dedicated screens with explicit user action.
+    // webhook_secret is included so workspace owners can display their authenticated webhook URL.
     const { data, error } = await supabase
       .from("workspaces")
-      .select("id, owner_id, name, timezone, facebook_pixel_id, created_at")
+      .select("id, owner_id, name, timezone, facebook_pixel_id, webhook_secret, created_at")
       .order("created_at", { ascending: true });
 
     if (error) {

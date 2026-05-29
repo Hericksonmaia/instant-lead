@@ -98,10 +98,12 @@ serve(async (req) => {
   }
 
   try {
-    // Extract workspace_id from query param
+    // Extract workspace_id and secret from query params (or headers as fallback)
     const url = new URL(req.url);
     const workspaceId = url.searchParams.get('workspace_id');
-    
+    const providedSecret =
+      url.searchParams.get('secret') || req.headers.get('x-webhook-secret') || '';
+
     if (!workspaceId) {
       console.error("Missing workspace_id query parameter");
       return new Response(JSON.stringify({ error: "Missing workspace_id" }), {
@@ -111,7 +113,7 @@ serve(async (req) => {
     }
 
     const payload: EvolutionPayload = await req.json();
-    
+
     console.log("Received Evolution webhook:", {
       event: payload.event,
       instance: payload.instance,
@@ -121,7 +123,7 @@ serve(async (req) => {
 
     // Validate payload structure
     if (!payload.event || !payload.instance || !payload.data?.key || !payload.data?.messageTimestamp) {
-      console.error("Invalid payload structure:", payload);
+      console.error("Invalid payload structure");
       return new Response(JSON.stringify({ error: "Invalid payload structure" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -130,7 +132,6 @@ serve(async (req) => {
 
     // Only process MESSAGES_UPSERT events
     if (payload.event !== "messages.upsert" && payload.event !== "MESSAGES_UPSERT") {
-      console.log("Ignoring event:", payload.event);
       return new Response(JSON.stringify({ message: "Event ignored", event: payload.event }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -158,17 +159,35 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Validate workspace exists
+    // Validate workspace exists and authenticate via webhook_secret
     const { data: wsData, error: wsError } = await supabase
       .from('workspaces')
-      .select('id, facebook_access_token, facebook_pixel_id')
+      .select('id, facebook_access_token, facebook_pixel_id, webhook_secret')
       .eq('id', workspaceId)
       .single();
 
     if (wsError || !wsData) {
-      console.error("Invalid workspace_id:", workspaceId);
-      return new Response(JSON.stringify({ error: "Invalid workspace" }), {
-        status: 403,
+      console.error("Invalid workspace_id");
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Constant-time secret comparison
+    const expected = (wsData as any).webhook_secret ?? '';
+    const a = new TextEncoder().encode(String(providedSecret));
+    const b = new TextEncoder().encode(String(expected));
+    let secretMatches = a.length === b.length && a.length > 0;
+    if (secretMatches) {
+      let diff = 0;
+      for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+      secretMatches = diff === 0;
+    }
+    if (!secretMatches) {
+      console.error("Invalid webhook secret for workspace");
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
