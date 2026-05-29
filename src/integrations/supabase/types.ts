@@ -199,33 +199,6 @@ export type Database = {
           },
         ]
       }
-      logs: {
-        Row: {
-          created_at: string | null
-          id: string
-          level: string | null
-          payload: Json | null
-          source: string | null
-          status: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          level?: string | null
-          payload?: Json | null
-          source?: string | null
-          status?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          level?: string | null
-          payload?: Json | null
-          source?: string | null
-          status?: string | null
-        }
-        Relationships: []
-      }
       menu_items: {
         Row: {
           created_at: string | null

@@ -123,7 +123,10 @@ serve(async (req) => {
 
     if (!response.ok) {
       console.error("Facebook API error:", result);
-      throw new Error(`Facebook API error: ${JSON.stringify(result)}`);
+      return new Response(
+        JSON.stringify({ success: false, error: "Conversion event failed" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 }
+      );
     }
 
     return new Response(
@@ -133,7 +136,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error in meta-conversions-api:", error);
     return new Response(
-      JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ success: false, error: "An internal error occurred" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }

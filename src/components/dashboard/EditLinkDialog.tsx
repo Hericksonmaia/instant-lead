@@ -273,7 +273,8 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSuccess }: EditLink
       onSuccess();
     } catch (error: any) {
       console.error("Save settings error:", error);
-      toast.error("Erro ao salvar configurações: " + (error?.message || "erro desconhecido"));
+      toast.error("Erro ao salvar configurações. Verifique os dados e tente novamente.");
+      console.error("Save link error:", error);
     } finally {
       setLoading(false);
     }

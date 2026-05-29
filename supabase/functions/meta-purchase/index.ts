@@ -187,17 +187,16 @@ serve(async (req) => {
 
     if (!response.ok) {
       console.error("Facebook API error:", result);
-      throw new Error(`Facebook API error: ${JSON.stringify(result)}`);
+      return new Response(
+        JSON.stringify({ success: false, error: "Purchase event failed" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 }
+      );
     }
 
-    console.log("Purchase event sent successfully:", result);
+    console.log("Purchase event sent successfully");
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        eventId,
-        facebookResponse: result,
-      }),
+      JSON.stringify({ success: true, eventId }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -209,7 +208,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "An internal error occurred",
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
