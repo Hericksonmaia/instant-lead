@@ -148,20 +148,33 @@ function LeadsContent() {
     );
   });
 
+  const sanitizeCsvCell = (value: string | null | undefined): string => {
+    if (value === null || value === undefined) return '""';
+    const str = String(value);
+    // Strip leading formula triggers to prevent CSV injection
+    const stripped = str.replace(/^[=+\-@\t\r]+/, "");
+    // Escape internal quotes
+    const escaped = stripped.replace(/"/g, '""');
+    return `"${escaped}"`;
+  };
+
   const exportCSV = () => {
     const headers = ["Nome", "Telefone", "Link", "Data", "UTM Source", "UTM Campaign"];
     const rows = filteredLeads.map((lead) => [
-      lead.name || "",
-      lead.phone || "",
-      lead.redirect_links?.name || "",
+      lead.name,
+      lead.phone,
+      lead.redirect_links?.name,
       lead.created_at ? format(new Date(lead.created_at), "dd/MM/yyyy HH:mm") : "",
-      lead.utm_source || "",
-      lead.utm_campaign || "",
+      lead.utm_source,
+      lead.utm_campaign,
     ]);
 
     const csvContent =
       "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+      [
+        headers.map(sanitizeCsvCell).join(","),
+        ...rows.map((r) => r.map(sanitizeCsvCell).join(",")),
+      ].join("\n");
 
     const link = document.createElement("a");
     link.href = encodeURI(csvContent);
