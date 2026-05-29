@@ -54,12 +54,17 @@ function SettingsContent() {
         });
       }
 
-      // Fetch workspace
+      // Fetch workspace (with sensitive token, separately on demand)
       if (currentWorkspace) {
+        const { data: wsSecret } = await supabase
+          .from("workspaces")
+          .select("facebook_access_token")
+          .eq("id", currentWorkspace.id)
+          .single();
         setWorkspace({
           name: currentWorkspace.name || "",
           facebook_pixel_id: currentWorkspace.facebook_pixel_id || "",
-          facebook_access_token: currentWorkspace.facebook_access_token || "",
+          facebook_access_token: wsSecret?.facebook_access_token || "",
           timezone: currentWorkspace.timezone || "America/Sao_Paulo",
         });
       }
